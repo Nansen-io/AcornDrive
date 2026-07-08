@@ -57,6 +57,7 @@ func handleWithStaticData(w http.ResponseWriter, r *http.Request, d *requestCont
 	nonce := base64.StdEncoding.EncodeToString(nonceBytes)
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; "+
+			"manifest-src 'self' blob:; "+
 			"style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-"+nonce+"'; connect-src 'self'; "+
 			"frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
 	userSelectedTheme := ""
