@@ -45,11 +45,23 @@ jobs:
       - name: Log in to ACR
         run: az acr login --name acorntoolsregistry
 
-      - name: Verify source files
+      - name: Generate config from template
+        env:
+          AUTH_KEY_DEV:  ${{ secrets.AUTH_KEY_DEV }}
+          AUTH_KEY_UAT:  ${{ secrets.AUTH_KEY_UAT }}
+          AUTH_KEY_PROD: ${{ secrets.AUTH_KEY_PROD }}
+          CHAINFS_CLIENT_SECRET_DEV:  ${{ secrets.CHAINFS_CLIENT_SECRET_DEV }}
+          CHAINFS_CLIENT_SECRET_UAT:  ${{ secrets.CHAINFS_CLIENT_SECRET_UAT }}
+          CHAINFS_CLIENT_SECRET_PROD: ${{ secrets.CHAINFS_CLIENT_SECRET_PROD }}
         run: |
-          echo "=== listing.css ===" && grep "status-col {" -A2 frontend/src/css/listing.css
-          echo "=== ListingView.vue ===" && grep "status-col-header" frontend/src/views/files/ListingView.vue
-          echo "=== auth.go ===" && grep -A6 "LoginMethodChainFs" backend/http/auth.go
+          case "$ENV" in
+            prod) AUTH_KEY="$AUTH_KEY_PROD"; CLIENT_SECRET="$CHAINFS_CLIENT_SECRET_PROD" ;;
+            uat)  AUTH_KEY="$AUTH_KEY_UAT";  CLIENT_SECRET="$CHAINFS_CLIENT_SECRET_UAT"  ;;
+            *)    AUTH_KEY="$AUTH_KEY_DEV";  CLIENT_SECRET="$CHAINFS_CLIENT_SECRET_DEV"  ;;
+          esac
+          cp backend/config.${ENV}.yaml.example backend/config.${ENV}.yaml
+          sed -i "s|__AUTH_KEY__|${AUTH_KEY}|g"                   backend/config.${ENV}.yaml
+          sed -i "s|__CHAINFS_CLIENT_SECRET__|${CLIENT_SECRET}|g" backend/config.${ENV}.yaml
 
       - name: Build and push Docker image
         run: |

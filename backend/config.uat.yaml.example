@@ -5,13 +5,13 @@ server:
     - path: "/srv"
 
 auth:
-  key: "fb-chainfs-uat-key-32bytes!!" # Exactly 32 bytes for AES-256
+  key: "__AUTH_KEY__"
   tokenExpirationHours: 4
   methods:
     chainfs:
       enabled: true
       apiBaseUrl: "https://nansenuat.azurewebsites.net"
-      clientSecret: "YOUR_AZURE_CLIENT_SECRET_HERE"
+      clientSecret: "__CHAINFS_CLIENT_SECRET__"
       createUser: true
       adminClaim: "roles"
       adminClaimValue: "admin"

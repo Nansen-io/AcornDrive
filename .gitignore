@@ -53,6 +53,11 @@ build/
 *__debug*
 backend/custom.css
 
+# Environment config files — generated from *.example in CI
+backend/config.dev.yaml
+backend/config.uat.yaml
+backend/config.prod.yaml
+
 # Runtime cache directories created by tests/application
 backend/preview/heic/
 backend/preview/thumbnails/
