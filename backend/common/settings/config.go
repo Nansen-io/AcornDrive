@@ -637,9 +637,47 @@ func loadEnvConfig() {
 		logger.Info("Using ChainFS issuer URL from FILEBROWSER_CHAINFS_ISSUER_URL environment variable")
 	}
 
+	// Endpoint overrides. The B2C endpoints (login/token/issuer) and the ChainFS API endpoint
+	// (apiBaseUrl) are independent settings and can be pointed at different environments, so each
+	// is separately overridable from the deployment manifest rather than baked into a YAML file.
+	if v := os.Getenv("FILEBROWSER_CHAINFS_API_BASE_URL"); v != "" {
+		Config.Auth.Methods.ChainFsAuth.ApiBaseUrl = v
+		logger.Infof("Using ChainFS API base URL from environment: %s", v)
+	}
+	if v := os.Getenv("FILEBROWSER_CHAINFS_LOGIN_URL"); v != "" {
+		Config.Auth.Methods.ChainFsAuth.LoginUrl = v
+		logger.Info("Using ChainFS login URL from FILEBROWSER_CHAINFS_LOGIN_URL environment variable")
+	}
+	if v := os.Getenv("FILEBROWSER_CHAINFS_TOKEN_URL"); v != "" {
+		Config.Auth.Methods.ChainFsAuth.TokenUrl = v
+		logger.Info("Using ChainFS token URL from FILEBROWSER_CHAINFS_TOKEN_URL environment variable")
+	}
+	if v := os.Getenv("FILEBROWSER_CHAINFS_LOGOUT_URL"); v != "" {
+		Config.Auth.Methods.ChainFsAuth.LogoutUrl = v
+		logger.Info("Using ChainFS logout URL from FILEBROWSER_CHAINFS_LOGOUT_URL environment variable")
+	}
+	if v := os.Getenv("FILEBROWSER_CHAINFS_DISCOVERY_URL"); v != "" {
+		Config.Auth.Methods.ChainFsAuth.DiscoveryUrl = v
+		logger.Info("Using ChainFS discovery URL from FILEBROWSER_CHAINFS_DISCOVERY_URL environment variable")
+	}
+
 	if os.Getenv("FILEBROWSER_CHAINFS_BYPASS") == "true" {
 		Env.ChainFsBypass = true
 		logger.Info("ChainFS subscription check bypassed via FILEBROWSER_CHAINFS_BYPASS env var")
+	}
+
+	if os.Getenv("FILEBROWSER_CHAINFS_INSECURE_SKIP_VERIFY") == "true" {
+		Env.ChainFsSkipVerify = true
+	}
+
+	// Fail loudly at startup rather than at the first login: an interactive B2C login with no
+	// issuerUrl cannot verify token signatures, and chainfs auth grants admin from a token claim.
+	if Config.Auth.Methods.ChainFsAuth.Enabled && Config.Auth.Methods.ChainFsAuth.IssuerUrl == "" {
+		if Env.ChainFsSkipVerify {
+			logger.Warning("SECURITY: ChainFS ID token signatures are NOT verified (FILEBROWSER_CHAINFS_INSECURE_SKIP_VERIFY=true). Development only.")
+		} else {
+			logger.Warning("SECURITY: ChainFS auth is enabled but issuerUrl is not set — interactive B2C logins will be REFUSED until it is configured. SSO logins from the hub are unaffected.")
+		}
 	}
 
 	if v := os.Getenv("FILEBROWSER_ACORN_TOOLS_URL"); v != "" {

@@ -85,17 +85,27 @@ type OidcConfig struct {
 	Verifier          *oidc.IDTokenVerifier `json:"-"`                 // OIDC verifier
 }
 
-// ChainFS Azure AD B2C Authentication
+// ChainFS Azure AD B2C Authentication.
+//
+// Two independent things are configured here, and they do not have to point at the same
+// environment:
+//   - Identity (loginUrl / tokenUrl / logoutUrl / issuerUrl / clientSecret) — the Azure AD B2C tenant.
+//   - Storage (apiBaseUrl) — the ChainFS API that protected files are uploaded to.
+//
+// apiBaseUrl is only consulted for identity as a *fallback*, when loginUrl/tokenUrl/logoutUrl are
+// not set. Set all three explicitly and the two concerns are fully decoupled.
 type ChainFsConfig struct {
 	Enabled          bool   `json:"enabled"`          // whether to enable ChainFS authentication
-	ApiBaseUrl       string `json:"apiBaseUrl"`       // ChainFS API base URL (DEV/UAT/PROD)
+	ApiBaseUrl       string `json:"apiBaseUrl"`       // ChainFS API base URL (DEV/UAT/PROD) — used for file uploads
 	LoginUrl         string `json:"loginUrl"`         // Azure B2C authorize endpoint (with client_id+scope params). When set, bypasses the ChainFS API call on every login.
 	TokenUrl         string `json:"tokenUrl"`         // Azure B2C token endpoint. Used with LoginUrl to avoid the ChainFS API call on every callback.
+	LogoutUrl        string `json:"logoutUrl"`        // Azure B2C logout endpoint. When set, avoids deriving the logout URL from apiBaseUrl.
 	ClientSecret     string `json:"clientSecret"`     // Azure AD B2C client secret
 	CreateUser       bool   `json:"createUser"`       // create user if not exists
 	AdminClaim       string `json:"adminClaim"`       // claim to check for admin status (e.g., "roles" or "groups")
 	AdminClaimValue  string `json:"adminClaimValue"`  // value that grants admin privileges (e.g., "admin")
-	IssuerUrl        string `json:"issuerUrl"`        // Azure AD B2C issuer URL for ID token signature verification (recommended). Format: https://<tenant>.b2clogin.com/<tenant-id>/v2.0/
+	IssuerUrl        string `json:"issuerUrl"`        // REQUIRED. The exact `iss` claim of B2C ID tokens, in tenant-GUID form: https://<tenant>.b2clogin.com/<tenant-guid>/v2.0/
+	DiscoveryUrl     string `json:"discoveryUrl"`     // Where B2C serves OIDC metadata (user-flow path): https://<tenant>.b2clogin.com/<tenant>.onmicrosoft.com/<policy>/v2.0 — derived from LoginUrl when empty. B2C serves no metadata at IssuerUrl, so the two differ.
 	AcornToolsUrl    string `json:"acornToolsUrl"`    // acorn.tools base URL for subscription checks (default: https://www.acorn.tools)
 	AcornToolsSecret string `json:"acornToolsSecret"` // secret: API key for acorn.tools internal endpoints
 }

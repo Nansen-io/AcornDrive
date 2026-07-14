@@ -233,12 +233,21 @@ func logoutHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (i
 			logoutUrl = oidcRedirectUrl
 		}
 	} else if d.user != nil && d.user.LoginMethod == users.LoginMethodChainFs {
-		go func() {
-			chainfsLogoutUrl, err := chainfs.GetLogoutUrl(config.Auth.Methods.ChainFsAuth.ApiBaseUrl)
-			if err == nil && chainfsLogoutUrl != "" {
-				http.Get(chainfsLogoutUrl) //nolint:errcheck
-			}
-		}()
+		chainfsConfig := config.Auth.Methods.ChainFsAuth
+		// Prefer the explicitly configured B2C logout endpoint. Deriving it from apiBaseUrl is a
+		// fallback only — it is what tied the identity provider to the ChainFS storage endpoint.
+		if chainfsConfig.LogoutUrl != "" {
+			go func() {
+				http.Get(chainfsConfig.LogoutUrl) //nolint:errcheck
+			}()
+		} else {
+			go func() {
+				chainfsLogoutUrl, err := chainfs.GetLogoutUrl(chainfsConfig.ApiBaseUrl)
+				if err == nil && chainfsLogoutUrl != "" {
+					http.Get(chainfsLogoutUrl) //nolint:errcheck
+				}
+			}()
+		}
 	}
 	if logoutUrl == "" {
 		logger.Debug("no logout url found, using default")

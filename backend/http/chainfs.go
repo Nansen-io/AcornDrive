@@ -106,6 +106,25 @@ func chainfsLoginHandler(w http.ResponseWriter, r *http.Request, d *requestConte
 	state := fmt.Sprintf("%s:%s", nonce, fbRedirect)
 	query.Set("state", state)
 
+	// Silent mode (?silent=1): used straight after an SSO handover to obtain the user's ChainFS
+	// tokens without showing them a login screen. They already have a live B2C session from
+	// signing in at the hub — the same tenant — so prompt=none returns an authorization code with
+	// no interaction. If that session is not usable, B2C replies error=login_required and the
+	// callback drops the user into Drive anyway, just without ChainFS protection.
+	silent := r.URL.Query().Get("silent") == "1"
+	if silent {
+		query.Set("prompt", "none")
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "chainfs_silent",
+		Value:    map[bool]string{true: "1", false: ""}[silent],
+		Path:     "/",
+		MaxAge:   map[bool]int{true: 300, false: -1}[silent],
+		HttpOnly: true,
+		Secure:   getScheme(r) == "https",
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	// Generate PKCE code verifier: 32 random bytes → base64url (no padding) = 43 chars
 	verifierBytes := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, verifierBytes); err != nil {
@@ -171,6 +190,32 @@ func chainfsCallbackHandler(w http.ResponseWriter, r *http.Request, d *requestCo
 
 	logger.Infof("ChainFS Callback - code: %s, state: %s, URL: %s",
 		truncateString(code, 20), truncateString(state, 20), r.URL.String())
+
+	// Was this a silent (prompt=none) attempt following an SSO handover?
+	silent := false
+	if c, cookieErr := r.Cookie("chainfs_silent"); cookieErr == nil && c.Value == "1" {
+		silent = true
+	}
+	clearSilentCookie(w, r)
+
+	// B2C reports failures as ?error=..., not as a missing code. A silent attempt legitimately
+	// fails with login_required/interaction_required when there is no usable B2C session; the user
+	// is already signed in to Drive via SSO, so send them on to the app rather than to an error
+	// page. They simply have no ChainFS token, which protectHandler reports honestly if they try
+	// to protect a file.
+	if b2cErr := r.URL.Query().Get("error"); b2cErr != "" {
+		redirectTarget := sanitizeLocalRedirect(redirectFromState(state))
+		if silent {
+			logger.Infof("ChainFS: silent re-auth did not complete (%s: %s) — continuing without a ChainFS token",
+				b2cErr, truncateString(r.URL.Query().Get("error_description"), 120))
+			http.Redirect(w, r, redirectTarget, http.StatusFound)
+			return 0, nil
+		}
+		logger.Errorf("ChainFS callback returned error=%s description=%s",
+			b2cErr, truncateString(r.URL.Query().Get("error_description"), 200))
+		http.Redirect(w, r, fmt.Sprintf("%slogin?error=chainfs", config.Server.BaseURL), http.StatusFound)
+		return 0, nil
+	}
 
 	if code == "" {
 		// Azure AD B2C might be returning code in URL fragment instead of query string
@@ -347,8 +392,16 @@ if (hash) {
 		return http.StatusInternalServerError, fmt.Errorf("failed to parse ID token: %w", err)
 	}
 
-	// Extract username
-	username := extractUsername(claims)
+	// Drive keys users on the Azure "sub" GUID. The SSO handover does the same
+	// (chainfsSSOHandler), and the two MUST agree: if this path fell back to email or
+	// preferred_username, the same person arriving via the tile and via the login button would end
+	// up with two separate accounts — and two separate home directories. Prefer sub always, and
+	// only fall back to extractUsername for a token that somehow carries no sub at all.
+	username, _ := claims["sub"].(string)
+	if username == "" {
+		username = extractUsername(claims)
+		logger.Warningf("ChainFS: ID token has no sub claim, falling back to %s as username", username)
+	}
 	if username == "" {
 		logger.Error("No valid username found in ID token claims")
 		return http.StatusInternalServerError, fmt.Errorf("no valid username found")
@@ -439,6 +492,7 @@ func loginWithChainFsUser(w http.ResponseWriter, r *http.Request, username, disp
 			Username:    username,
 			DisplayName: displayName,
 			LoginMethod: users.LoginMethodChainFs,
+			AzureSub:    azureSub,
 		}
 		settings.ApplyUserDefaults(user)
 
@@ -507,6 +561,7 @@ func loginWithChainFsUser(w http.ResponseWriter, r *http.Request, username, disp
 		user.AzureTokenExpiry = expiresAt
 		user.LoginMethod = users.LoginMethodChainFs
 		user.ChainFSSubscribed = subscribed
+		user.AzureSub = azureSub
 		if displayName != "" {
 			user.DisplayName = displayName
 		}
@@ -515,7 +570,7 @@ func loginWithChainFsUser(w http.ResponseWriter, r *http.Request, username, disp
 			user.Permissions.Admin = true
 		}
 
-		updateFields := []string{"AzureAccessToken", "AzureRefreshToken", "AzureTokenExpiry", "LoginMethod", "Permissions", "ChainFSSubscribed", "DisplayName"}
+		updateFields := []string{"AzureAccessToken", "AzureRefreshToken", "AzureTokenExpiry", "LoginMethod", "Permissions", "ChainFSSubscribed", "DisplayName", "AzureSub"}
 		if correctUserScope(user) {
 			updateFields = append(updateFields, "Scopes")
 		}
@@ -566,31 +621,110 @@ func sanitizeLocalRedirect(redirect string) string {
 	return redirect
 }
 
-// parseAndVerifyIDToken verifies the Azure AD B2C ID token signature when issuerUrl
-// is configured, then returns the claims. Falls back to unverified parsing when
-// issuerUrl is empty (logs a security warning).
+// parseAndVerifyIDToken verifies the Azure AD B2C ID token signature and returns its claims.
+//
+// When issuerUrl is not configured this FAILS CLOSED. Skipping verification means trusting a
+// token nobody checked the signature of, and because chainfs auth runs with createUser enabled
+// and grants admin from a claim inside that token, an unverified token is an admin-account
+// forgery primitive. Set issuerUrl (or FILEBROWSER_CHAINFS_ISSUER_URL) to the exact `iss` value
+// of your B2C ID tokens.
+//
+// FILEBROWSER_CHAINFS_INSECURE_SKIP_VERIFY=true restores the old unverified behaviour for local
+// development only. It must never be set on a deployed environment.
+//
+// Azure AD B2C is off-spec here and needs two distinct URLs, which is why this is not a plain
+// NewProvider(issuer) call:
+//
+//	issuerUrl    the `iss` claim B2C actually mints, in tenant-GUID form:
+//	             https://<tenant>.b2clogin.com/<tenant-guid>/v2.0/
+//	discoveryUrl where the OIDC metadata lives, under the user-flow path:
+//	             https://<tenant>.b2clogin.com/<tenant>.onmicrosoft.com/<policy>/v2.0
+//
+// There is no discovery document at the issuer URL (it 404s), and the metadata served at the
+// discovery URL advertises the GUID issuer — so discovering from either URL alone fails. We
+// discover from discoveryUrl and pin validation to issuerUrl. `iss` is still fully verified;
+// only the *location* of the metadata is overridden.
 func parseAndVerifyIDToken(ctx context.Context, rawIDToken, clientID, issuerUrl string) (map[string]interface{}, error) {
-	if issuerUrl != "" {
-		provider, err := gooidc.NewProvider(ctx, issuerUrl)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialise OIDC provider for token verification: %w", err)
+	if issuerUrl == "" {
+		if settings.Env.ChainFsSkipVerify {
+			logger.Warning("ChainFS: ID token signature is NOT being verified (FILEBROWSER_CHAINFS_INSECURE_SKIP_VERIFY=true). Development only — never use this in a deployed environment.")
+			return parseJWTClaims(rawIDToken)
 		}
-		verifier := provider.Verifier(&gooidc.Config{ClientID: clientID})
-		idToken, err := verifier.Verify(ctx, rawIDToken)
-		if err != nil {
-			return nil, fmt.Errorf("ID token signature verification failed: %w", err)
-		}
-		var claims map[string]interface{}
-		if err := idToken.Claims(&claims); err != nil {
-			return nil, fmt.Errorf("failed to extract verified claims: %w", err)
-		}
-		return claims, nil
+		logger.Error("ChainFS: refusing to accept an ID token because issuerUrl is not configured. Set issuerUrl (or FILEBROWSER_CHAINFS_ISSUER_URL) so token signatures can be verified.")
+		return nil, fmt.Errorf("ChainFS issuerUrl is not configured, cannot verify ID token signature")
 	}
 
-	// IssuerUrl not configured — parse without signature verification.
-	// Security warning: configure issuerUrl in chainfs settings to enable verification.
-	logger.Warning("ChainFS: IssuerUrl is not set — ID token signature is NOT verified. Set issuerUrl in chainfs config to harden this deployment.")
-	return parseJWTClaims(rawIDToken)
+	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
+	discoveryUrl := chainfsConfig.DiscoveryUrl
+	if discoveryUrl == "" {
+		discoveryUrl = deriveB2CDiscoveryUrl(chainfsConfig.LoginUrl)
+	}
+	if discoveryUrl == "" {
+		return nil, fmt.Errorf("ChainFS discoveryUrl is not configured and could not be derived from loginUrl")
+	}
+
+	provider, err := gooidc.NewProvider(gooidc.InsecureIssuerURLContext(ctx, issuerUrl), discoveryUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialise OIDC provider for token verification (discovery %s): %w", discoveryUrl, err)
+	}
+	verifier := provider.Verifier(&gooidc.Config{ClientID: clientID})
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return nil, fmt.Errorf("ID token signature verification failed: %w", err)
+	}
+	var claims map[string]interface{}
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, fmt.Errorf("failed to extract verified claims: %w", err)
+	}
+	return claims, nil
+}
+
+// clearSilentCookie expires the marker set by a prompt=none login attempt.
+func clearSilentCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "chainfs_silent",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   getScheme(r) == "https",
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// redirectFromState pulls the app path out of the "<nonce>:<redirect>" state parameter.
+// Callers must pass the result through sanitizeLocalRedirect — state comes back from B2C and is
+// therefore attacker-influenceable.
+func redirectFromState(state string) string {
+	parts := strings.SplitN(state, ":", 2)
+	if len(parts) == 2 {
+		return parts[1]
+	}
+	return ""
+}
+
+// deriveB2CDiscoveryUrl turns a B2C authorize endpoint into its OIDC discovery base, so the
+// discovery URL does not have to be configured separately:
+//
+//	https://t.b2clogin.com/t.onmicrosoft.com/B2C_1_policy/oauth2/v2.0/authorize?client_id=...
+//	                                     ->  https://t.b2clogin.com/t.onmicrosoft.com/B2C_1_policy/v2.0
+//
+// Returns "" when loginUrl is empty or is not in the expected B2C form, in which case the caller
+// must fall back to an explicitly configured discoveryUrl.
+func deriveB2CDiscoveryUrl(loginUrl string) string {
+	if loginUrl == "" {
+		return ""
+	}
+	u, err := url.Parse(loginUrl)
+	if err != nil {
+		return ""
+	}
+	const authorizeSuffix = "/oauth2/v2.0/authorize"
+	if !strings.HasSuffix(u.Path, authorizeSuffix) {
+		return ""
+	}
+	policyBase := strings.TrimSuffix(u.Path, authorizeSuffix)
+	return fmt.Sprintf("%s://%s%s/v2.0", u.Scheme, u.Host, policyBase)
 }
 
 // parseJWTClaims parses JWT claims without verification (fallback only).
@@ -940,6 +1074,20 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 	// from the B2C token, which lacks preferred_username/email for this tenant).
 	username := payload.AzureSub
 
+	// NOTE: SSO users have no per-user ChainFS credentials, and cannot be given any.
+	//
+	// The SSO handover carries no ChainFS credentials, and cannot: the hub authenticates with B2C
+	// using the implicit flow and keeps only the decoded claims — the access token is verified once
+	// and discarded, and implicit flow issues no refresh token at all. ChainFS also has no way to
+	// accept one: POST /api/NansenFile/FileCreate takes no user parameter, so the uploading
+	// identity is whoever the bearer token says it is. A shared service token would file every
+	// user's document under one ChainFS account.
+	//
+	// So Drive obtains its own per-user token instead, by completing its own B2C authorization-code
+	// flow silently once the session exists (see the redirect at the end of this handler).
+	var encryptedAccess, encryptedRefresh string
+	var azureTokenExpiry int64
+
 	// Check admin status from existing DB record — preserve manually-granted admin rights.
 	isAdmin := false
 	if existingUser, err := store.Users.Get(username); err == nil && existingUser.Permissions.Admin {
@@ -960,6 +1108,10 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 			DisplayName:       payload.GivenName,
 			LoginMethod:       users.LoginMethodChainFs,
 			ChainFSSubscribed: true,
+			AzureSub:          payload.AzureSub,
+			AzureAccessToken:  encryptedAccess,
+			AzureRefreshToken: encryptedRefresh,
+			AzureTokenExpiry:  azureTokenExpiry,
 		}
 		settings.ApplyUserDefaults(newUser)
 		if isAdmin {
@@ -988,13 +1140,22 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 		// Existing user — update subscription flag and display name.
 		user.ChainFSSubscribed = true
 		user.LoginMethod = users.LoginMethodChainFs
+		user.AzureSub = payload.AzureSub
 		if payload.GivenName != "" {
 			user.DisplayName = payload.GivenName
 		}
 		if isAdmin {
 			user.Permissions.Admin = true
 		}
-		updateFields := []string{"ChainFSSubscribed", "LoginMethod", "Permissions", "DisplayName"}
+		updateFields := []string{"ChainFSSubscribed", "LoginMethod", "Permissions", "DisplayName", "AzureSub"}
+		// Only overwrite stored ChainFS credentials when the hub actually returned a fresh token.
+		// A transient fetch failure must not wipe a token that is still valid.
+		if encryptedAccess != "" {
+			user.AzureAccessToken = encryptedAccess
+			user.AzureRefreshToken = encryptedRefresh
+			user.AzureTokenExpiry = azureTokenExpiry
+			updateFields = append(updateFields, "AzureAccessToken", "AzureRefreshToken", "AzureTokenExpiry")
+		}
 		if correctUserScope(user) {
 			updateFields = append(updateFields, "Scopes")
 		}
@@ -1018,6 +1179,24 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 		Secure:   getScheme(r) == "https",
 		SameSite: http.SameSiteLaxMode,
 	})
+
+	// The user is now signed in to Drive, but has no ChainFS token — the handover cannot carry one.
+	// Send them through Drive's own B2C authorization-code flow with prompt=none. They already hold
+	// a B2C session cookie from signing in at the hub (the same tenant), so this completes without
+	// any visible login screen and yields a real per-user access + refresh token, which is what
+	// file protection needs. If B2C declines, the callback lands them in the app regardless.
+	//
+	// Only bother when we do not already have a usable token, so returning users are not bounced
+	// through B2C on every visit.
+	tokenUsable := user.AzureAccessToken != "" &&
+		(user.AzureTokenExpiry == 0 || time.Now().Unix() < user.AzureTokenExpiry)
+	if !tokenUsable && chainfsConfig.Enabled {
+		silentLogin := fmt.Sprintf("%sapi/auth/chainfs/login?silent=1&redirect=%s",
+			config.Server.BaseURL, url.QueryEscape(next))
+		logger.Infof("SSO: %s has no ChainFS token — attempting silent B2C re-auth", username)
+		http.Redirect(w, r, silentLogin, http.StatusFound)
+		return 0, nil
+	}
 
 	http.Redirect(w, r, next, http.StatusFound)
 	return 0, nil

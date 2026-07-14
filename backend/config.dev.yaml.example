@@ -15,6 +15,11 @@ auth:
       createUser: true
       adminClaim: "roles"
       adminClaimValue: "admin"
+      # Required for ID token signature verification. loginUrl is not set here (it is fetched from
+      # the ChainFS API at runtime), so discoveryUrl cannot be derived and must be given explicitly.
+      # Both values verified against the live tenant's OIDC metadata.
+      issuerUrl: "https://nansendev2.b2clogin.com/c87e0a28-0665-4f48-bf3b-a1060d182293/v2.0/"
+      discoveryUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/v2.0"
     password:
       enabled: false
     oidc:

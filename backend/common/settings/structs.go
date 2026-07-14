@@ -37,6 +37,7 @@ type Environment struct {
 	FaviconIsCustom       bool   `json:"-"` // true if favicon is from custom filesystem path
 	FaviconEmbeddedPath   string `json:"-"` // embedded asset path for default favicon
 	ChainFsBypass         bool   `json:"-"` // skip ChainFS subscription check and file writes (for testing)
+	ChainFsSkipVerify     bool   `json:"-"` // accept B2C ID tokens WITHOUT verifying their signature (FILEBROWSER_CHAINFS_INSECURE_SKIP_VERIFY) — development only, never deploy
 	AcornToolsURL         string `json:"-"` // acorn.tools base URL for subscription checks (FILEBROWSER_ACORN_TOOLS_URL)
 	AcornToolsSecret      string `json:"-"` // API secret for acorn.tools internal endpoints (FILEBROWSER_ACORN_TOOLS_SECRET)
 	AcornDriveSsoSecret   string `json:"-"` // HMAC secret for verifying SSO tokens from acorn.tools (FILEBROWSER_ACORN_DRIVE_SSO_SECRET)

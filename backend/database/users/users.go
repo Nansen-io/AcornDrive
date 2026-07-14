@@ -76,6 +76,7 @@ type User struct {
 	TOTPNonce         string               `json:"totpNonce,omitempty"`
 	LoginMethod       LoginMethod          `json:"loginMethod"`
 	OtpEnabled        bool                 `json:"otpEnabled"` // true if TOTP is enabled, false otherwise
+	AzureSub            string               `json:"azureSub,omitempty"`            // Azure AD B2C "sub" claim — the identifier acorn.tools keys subscriptions on
 	AzureAccessToken    string               `json:"azureAccessToken,omitempty"`    // Azure AD B2C access token (encrypted)
 	AzureRefreshToken   string               `json:"azureRefreshToken,omitempty"`   // Azure AD B2C refresh token (encrypted)
 	AzureTokenExpiry    int64                `json:"azureTokenExpiry,omitempty"`    // Token expiration time (Unix timestamp)

@@ -36,7 +36,12 @@ properties:
       server: acorntoolsregistry.azurecr.io
       username: ''
     runtime: null
-    secrets: null
+    # Values are intentionally omitted — set them on the Container App, never in this file:
+    #   az containerapp secret set -n acorndrive-prod -g rg-acornDrive \
+    #     --secrets acorn-tools-secret=<value> acorn-drive-sso-secret=<value>
+    secrets:
+    - name: acorn-tools-secret
+    - name: acorn-drive-sso-secret
     service: null
   customDomainVerificationId: DC84CD965FFEAB51D375B53E9D6138EE66DBFF7E98D4E0283C44E1CCEBCE1F7F
   delegatedIdentities: []
@@ -213,10 +218,30 @@ properties:
   template:
     containers:
     - env:
+      # NOTE: this file is an exported snapshot for reference. CI does NOT apply it — deploy.yml
+      # only runs `az containerapp update --image`. Env vars are set directly on the Container App,
+      # so this list can drift from what is live (FILEBROWSER_ACORN_DRIVE_SSO_SECRET, for example,
+      # is set live but absent here). Do not `az containerapp create --yaml` this file: it would
+      # remove live settings. Change env vars with `az containerapp update --set-env-vars`.
       - name: FILEBROWSER_ACORN_TOOLS_SECRET
-        value: 59d7c2a3-ca3d-45cd-823f-abe73d834eb9
+        secretRef: acorn-tools-secret
       - name: FILEBROWSER_ACORN_TOOLS_URL
         value: https://acorn.tools
+      - name: FILEBROWSER_ACORN_DRIVE_SSO_SECRET
+        secretRef: acorn-drive-sso-secret
+      # Identity (Azure AD B2C) and storage (ChainFS) endpoints. Both must point at PROD together —
+      # they share one Azure directory. issuerUrl is REQUIRED: without it, interactive B2C logins
+      # are refused, because chainfs auth auto-creates users and grants admin from a token claim.
+      - name: FILEBROWSER_CHAINFS_ISSUER_URL
+        value: __SET_ME__ # exact `iss` value of PROD B2C ID tokens
+      - name: FILEBROWSER_CHAINFS_LOGIN_URL
+        value: __SET_ME__ # PROD B2C authorize endpoint (with client_id + scope)
+      - name: FILEBROWSER_CHAINFS_TOKEN_URL
+        value: __SET_ME__ # PROD B2C token endpoint
+      - name: FILEBROWSER_CHAINFS_LOGOUT_URL
+        value: __SET_ME__ # PROD B2C logout endpoint
+      - name: FILEBROWSER_CHAINFS_API_BASE_URL
+        value: https://nansenprod.azurewebsites.net
       image: acorntoolsregistry.azurecr.io/acorndrive:prod
       name: acorndrive-prod
       probes:

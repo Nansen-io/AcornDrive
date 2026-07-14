@@ -47,23 +47,36 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 		hours = parsed
 	}
 
-	// Require ChainFS login method (SSO users without an Azure token get local-only protection below)
 	if d.user.LoginMethod != users.LoginMethodChainFs {
 		return http.StatusForbidden, fmt.Errorf("ChainFS account required to protect files")
 	}
-	hasAzureToken := d.user.AzureAccessToken != ""
 
-	// Check token expiry only when a token is present
-	if hasAzureToken && d.user.AzureTokenExpiry > 0 && time.Now().Unix() > d.user.AzureTokenExpiry {
+	// Protection means "uploaded to ChainFS". Without ChainFS credentials we cannot do that, and we
+	// must not pretend otherwise — an earlier version minted a fake FileGuid here and returned 200,
+	// so users were told files were protected when nothing had been uploaded. Fail honestly instead.
+	if !settings.Env.ChainFsBypass && d.user.AzureAccessToken == "" {
+		logger.Errorf("protect: user %s has no ChainFS token — cannot upload %s", d.user.Username, filePath)
+		return http.StatusUnauthorized, fmt.Errorf("no ChainFS credentials for this session, please sign in again")
+	}
+
+	if d.user.AzureTokenExpiry > 0 && time.Now().Unix() > d.user.AzureTokenExpiry {
 		return http.StatusUnauthorized, fmt.Errorf("ChainFS token expired, please re-authenticate")
 	}
 
 	// Check subscription — prefer live acorn.tools check; fall back to cached flag.
+	// acorn.tools keys subscriptions on the Azure "sub" claim, which is what the login paths send.
+	// Username only happens to equal it for SSO users; fall back to it for records created before
+	// AzureSub was persisted.
+	azureSub := d.user.AzureSub
+	if azureSub == "" {
+		azureSub = d.user.Username
+	}
+
 	acornSubscribed := false
 	if settings.Env.ChainFsBypass {
 		acornSubscribed = true
 	} else if settings.Env.AcornToolsSecret != "" {
-		access, accessErr := chainfs.CheckAcornToolsAccess(settings.Env.AcornToolsURL, settings.Env.AcornToolsSecret, d.user.Username)
+		access, accessErr := chainfs.CheckAcornToolsAccess(settings.Env.AcornToolsURL, settings.Env.AcornToolsSecret, azureSub)
 		if accessErr != nil {
 			logger.Errorf("acorn.tools subscription check failed for protect (%s): %v", d.user.Username, accessErr)
 			return http.StatusServiceUnavailable, fmt.Errorf("could not verify subscription status, please try again")
@@ -115,15 +128,14 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 		return http.StatusInternalServerError, fmt.Errorf("failed to stat file: %w", err)
 	}
 
-	// Upload to ChainFS (segmented if >10MB), simulate if bypass active, or use local-only for SSO users without an Azure token.
+	// Upload to ChainFS (segmented if >10MB). FILEBROWSER_CHAINFS_BYPASS simulates the upload for
+	// local development only; every other path must produce a real ChainFS FileGuid or fail. A
+	// recorded protection with a synthetic FileGuid is worse than no protection, because the user
+	// is told their file is on ChainFS when it is not.
 	var fileGuid string
-	if settings.Env.ChainFsBypass || !hasAzureToken {
+	if settings.Env.ChainFsBypass {
 		fileGuid = "bypass-" + utils.InsecureRandomIdentifier(16)
-		if !hasAzureToken {
-			logger.Infof("SSO user %s (no Azure token) — local-only protection for %s, FileGuid: %s", d.user.Username, fileInfo.RealPath, fileGuid)
-		} else {
-			logger.Infof("ChainFS bypass active — skipping upload for %s, simulated FileGuid: %s", fileInfo.RealPath, fileGuid)
-		}
+		logger.Infof("ChainFS bypass active — skipping upload for %s, simulated FileGuid: %s", fileInfo.RealPath, fileGuid)
 	} else {
 		accessToken, err := decryptToken(d.user.AzureAccessToken)
 		if err != nil {
@@ -138,18 +150,10 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 			fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, accessToken, stat.Name(), f, aesPassword)
 		}
 		if err != nil {
-			// If ChainFS reports the user as unsubscribed but acorn.tools confirmed subscription,
-			// the DEV server or token may be out of sync — use bypass mode so protection still records locally.
-			if strings.Contains(err.Error(), "User not subscribed") && acornSubscribed {
-				fileGuid = "acorn-bypass-" + utils.InsecureRandomIdentifier(16)
-				logger.Infof("ChainFS subscription mismatch for %s (acorn.tools OK, ChainFS rejected) — using local bypass, FileGuid: %s", fileInfo.RealPath, fileGuid)
-			} else {
-				logger.Errorf("ChainFS upload failed for %s: %v", fileInfo.RealPath, err)
-				return http.StatusBadGateway, fmt.Errorf("ChainFS upload failed: %w", err)
-			}
-		} else {
-			logger.Infof("ChainFS upload succeeded for %s, FileGuid: %s", fileInfo.RealPath, fileGuid)
+			logger.Errorf("ChainFS upload failed for %s: %v", fileInfo.RealPath, err)
+			return http.StatusBadGateway, fmt.Errorf("ChainFS upload failed: %w", err)
 		}
+		logger.Infof("ChainFS upload succeeded for %s, FileGuid: %s", fileInfo.RealPath, fileGuid)
 	}
 
 	// Persist protection metadata to database and central state file

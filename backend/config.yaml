@@ -12,10 +12,16 @@ auth:
     chainfs:
       enabled: true
       apiBaseUrl: "https://nansendev.azurewebsites.net"
-      clientSecret: "oMe8Q~2Q0nmGM1zpBG_.WPT5yQseLo1PI6lxCc.N"
+      # Never commit secrets. Supply locally via FILEBROWSER_CHAINFS_CLIENT_SECRET.
+      clientSecret: ""
       createUser: true
       adminClaim: "roles"
       adminClaimValue: "admin"
+      # Local dev has no issuerUrl, so interactive B2C logins are refused by default.
+      # To exercise that flow locally, either set FILEBROWSER_CHAINFS_ISSUER_URL, or set
+      # FILEBROWSER_CHAINFS_INSECURE_SKIP_VERIFY=true to skip signature verification.
+      # The skip flag is for local development only — never set it on a deployed environment.
+      issuerUrl: ""
     password:
       enabled: false
     oidc:
