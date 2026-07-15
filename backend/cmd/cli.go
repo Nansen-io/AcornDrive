@@ -33,7 +33,6 @@ func runCLI() bool {
 	flag.Usage = generalUsage
 	flag.StringVar(&configPath, "c", "", "Path to the config file, default: config.yaml")
 	flag.BoolVar(&help, "h", false, "Get help about commands")
-	flag.BoolVar(&settings.Env.ChainFsBypass, "chainfs-bypass", false, "Bypass ChainFS subscription check and skip blockchain writes (for testing only)")
 
 	if configPath == "" {
 		configPath = os.Getenv("FILEBROWSER_CONFIG")

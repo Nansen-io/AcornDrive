@@ -54,7 +54,7 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 	// Protection means "uploaded to ChainFS". Without ChainFS credentials we cannot do that, and we
 	// must not pretend otherwise — an earlier version minted a fake FileGuid here and returned 200,
 	// so users were told files were protected when nothing had been uploaded. Fail honestly instead.
-	if !settings.Env.ChainFsBypass && d.user.AzureAccessToken == "" {
+	if d.user.AzureAccessToken == "" {
 		logger.Errorf("protect: user %s has no ChainFS token — cannot upload %s", d.user.Username, filePath)
 		return http.StatusUnauthorized, fmt.Errorf("no ChainFS credentials for this session, please sign in again")
 	}
@@ -73,9 +73,7 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 	}
 
 	acornSubscribed := false
-	if settings.Env.ChainFsBypass {
-		acornSubscribed = true
-	} else if settings.Env.AcornToolsSecret != "" {
+	if settings.Env.AcornToolsSecret != "" {
 		access, accessErr := chainfs.CheckAcornToolsAccess(settings.Env.AcornToolsURL, settings.Env.AcornToolsSecret, azureSub)
 		if accessErr != nil {
 			logger.Errorf("acorn.tools subscription check failed for protect (%s): %v", d.user.Username, accessErr)
@@ -128,15 +126,11 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 		return http.StatusInternalServerError, fmt.Errorf("failed to stat file: %w", err)
 	}
 
-	// Upload to ChainFS (segmented if >10MB). FILEBROWSER_CHAINFS_BYPASS simulates the upload for
-	// local development only; every other path must produce a real ChainFS FileGuid or fail. A
-	// recorded protection with a synthetic FileGuid is worse than no protection, because the user
+	// Upload to ChainFS (segmented if >10MB). This must produce a real ChainFS FileGuid or fail —
+	// a recorded protection with a synthetic FileGuid is worse than no protection, because the user
 	// is told their file is on ChainFS when it is not.
 	var fileGuid string
-	if settings.Env.ChainFsBypass {
-		fileGuid = "bypass-" + utils.InsecureRandomIdentifier(16)
-		logger.Infof("ChainFS bypass active — skipping upload for %s, simulated FileGuid: %s", fileInfo.RealPath, fileGuid)
-	} else {
+	{
 		accessToken, err := decryptToken(d.user.AzureAccessToken)
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to decrypt access token: %w", err)
@@ -171,6 +165,13 @@ func deriveUserAESPassword(user *users.User) string {
 	material := settings.Config.Auth.Key + ":" + user.Username
 	hash := sha256.Sum256([]byte(material))
 	return hex.EncodeToString(hash[:])
+}
+
+// isSyntheticFileGuid reports whether a FileGuid was fabricated by the old ChainFS-bypass paths
+// rather than returned by a real ChainFS upload. Such records represent files that were reported
+// as protected without ever being uploaded, and are purged on startup (see InitAcornState).
+func isSyntheticFileGuid(fileGuid string) bool {
+	return strings.HasPrefix(fileGuid, "bypass-") || strings.HasPrefix(fileGuid, "acorn-bypass-")
 }
 
 // getProtectionRecord returns the protection record from DB.

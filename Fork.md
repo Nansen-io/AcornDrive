@@ -73,7 +73,6 @@ Right-click → Protect uploads a file to ChainFS and marks it as protected:
 - Protected indicator (green dot) shown in file list
 - Protected column is sortable
 - Protected files cannot be deleted or moved until expiry
-- `--chainfs-bypass` flag skips ChainFS upload and subscription check (testing)
 
 **Key files:**
 - `backend/database/protection/protection.go` — BoltDB storage for protection records

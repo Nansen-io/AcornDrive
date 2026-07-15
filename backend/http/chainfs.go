@@ -450,10 +450,7 @@ func loginWithChainFsUser(w http.ResponseWriter, r *http.Request, username, disp
 
 	// Check subscription via acorn.tools billing system.
 	var subscribed bool
-	if settings.Env.ChainFsBypass {
-		subscribed = true
-		logger.Infof("Subscription check bypassed for %s via FILEBROWSER_CHAINFS_BYPASS", username)
-	} else if settings.Env.AcornToolsSecret != "" {
+	if settings.Env.AcornToolsSecret != "" {
 		access, accessErr := chainfs.CheckAcornToolsAccess(settings.Env.AcornToolsURL, settings.Env.AcornToolsSecret, azureSub)
 		if accessErr != nil {
 			logger.Errorf("acorn.tools subscription check failed for %s: %v", username, accessErr)
@@ -1042,10 +1039,7 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 	// Subscription check — use azureSub (GUID) not email so the landing page
 	// endpoint can find the user in its database.
 	var subscribed bool
-	if settings.Env.ChainFsBypass {
-		subscribed = true
-		logger.Infof("SSO: subscription check bypassed for %s", payload.Email)
-	} else if settings.Env.AcornToolsSecret != "" {
+	if settings.Env.AcornToolsSecret != "" {
 		access, accessErr := chainfs.CheckAcornToolsAccess(settings.Env.AcornToolsURL, settings.Env.AcornToolsSecret, payload.AzureSub)
 		if accessErr != nil {
 			logger.Errorf("SSO: acorn.tools subscription check failed for %s: %v", payload.Email, accessErr)
@@ -1054,7 +1048,7 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 		subscribed = access.HasAccess
 		logger.Infof("SSO: acorn.tools subscription for %s: plan=%s hasAccess=%v", payload.Email, access.PlanTier, subscribed)
 	} else {
-		// No acorn.tools secret configured and bypass not set — deny SSO login.
+		// No acorn.tools secret configured — cannot verify subscription, deny SSO login.
 		logger.Errorf("SSO: FILEBROWSER_ACORN_TOOLS_SECRET not set, cannot verify subscription for %s", payload.Email)
 		return http.StatusServiceUnavailable, fmt.Errorf("subscription verification not configured")
 	}

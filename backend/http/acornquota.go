@@ -23,9 +23,9 @@ var (
 
 // getUserQuotaBytes returns the effective quota for a user by querying acorn.tools.
 // Results are cached per-user for 10 minutes. Falls back to the config default
-// when in bypass mode, when the API is unavailable, or when the API returns 0.
+// when the API is not configured, is unavailable, or returns 0.
 func getUserQuotaBytes(username string) int64 {
-	if settings.Env.ChainFsBypass || settings.Env.AcornToolsSecret == "" {
+	if settings.Env.AcornToolsSecret == "" {
 		return settings.Config.UserDefaults.DefaultQuotaBytes
 	}
 

@@ -85,6 +85,24 @@ func InitAcornState() {
 		acornState.SafeMode = make(map[string]acornSafeModeEntry)
 	}
 
+	// Drop legacy "bypass" protection records. These were written by an earlier ChainFS-bypass
+	// path that recorded a synthetic FileGuid without ever uploading the file — so the file was
+	// reported as protected while nothing existed on ChainFS. Remove them so those files are
+	// honestly shown as unprotected. The bypass path itself has been removed, so none are created
+	// anymore; this only cleans up records left behind.
+	purged := 0
+	for realPath, e := range acornState.Protections {
+		if isSyntheticFileGuid(e.FileGuid) {
+			delete(acornState.Protections, realPath)
+			purged++
+			logger.Infof("acornstate: purged bypass protection record (%s) for %s", e.FileGuid, realPath)
+		}
+	}
+	if purged > 0 {
+		saveAcornStateLocked()
+		logger.Infof("acornstate: purged %d bypass protection record(s) from %s", purged, acornStatePath)
+	}
+
 	// Restore protection records into BoltDB so the rest of the app
 	// can use the normal DB-backed lookup path.
 	restored := 0

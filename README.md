@@ -36,12 +36,6 @@ cd backend && go build -o filebrowser && ./filebrowser -c config.dev.yaml
 
 Open `http://localhost:8080` — login with the **ChainFS Login** button (Azure AD B2C).
 
-Use `--chainfs-bypass` to skip ChainFS and run with local password auth:
-
-```bash
-./filebrowser --chainfs-bypass -c config.dev.yaml
-```
-
 ## Documentation
 
 | File | Purpose |

@@ -98,7 +98,6 @@ cd /home/mem/git/filebrowser/backend
 ./filebrowser -h                  # Show help
 ./filebrowser -c                  # Print default config
 ./filebrowser version             # Show version info
-./filebrowser --chainfs-bypass    # Skip ChainFS subscription check and blockchain writes (testing only)
 ```
 
 ### Default Ports

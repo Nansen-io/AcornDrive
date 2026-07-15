@@ -661,11 +661,6 @@ func loadEnvConfig() {
 		logger.Info("Using ChainFS discovery URL from FILEBROWSER_CHAINFS_DISCOVERY_URL environment variable")
 	}
 
-	if os.Getenv("FILEBROWSER_CHAINFS_BYPASS") == "true" {
-		Env.ChainFsBypass = true
-		logger.Info("ChainFS subscription check bypassed via FILEBROWSER_CHAINFS_BYPASS env var")
-	}
-
 	if os.Getenv("FILEBROWSER_CHAINFS_INSECURE_SKIP_VERIFY") == "true" {
 		Env.ChainFsSkipVerify = true
 	}
