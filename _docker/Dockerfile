@@ -2,11 +2,14 @@ FROM gtstef/ffmpeg:8.0.1-decode AS ffmpeg
 
 FROM node:jod-slim AS nbuild
 WORKDIR /app
-COPY ./frontend/package.json ./
+# Copy the lockfile too and install with `npm ci` so the build is reproducible. Installing from
+# package.json alone re-resolves every transitive dependency on each build, which silently pulled a
+# newer, incompatible ts-api-utils/@typescript-eslint and broke `vite build`'s eslint step.
+COPY ./frontend/package.json ./frontend/package-lock.json ./
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && git config --global url."https://github.com/".insteadOf "git@github.com:" \
     && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-RUN npm i --maxsockets 1
+RUN npm ci --maxsockets 1
 COPY ./frontend/ ./
 RUN npm run build:docker
 
