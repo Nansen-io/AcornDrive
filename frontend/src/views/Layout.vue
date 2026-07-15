@@ -241,7 +241,7 @@ export default {
         props: {
           title: "Subscription Required",
           body: `<div style="text-align:center;padding:0.5em 0">
-            <p style="margin-bottom:1em">Your acornAI account does not have an active <strong>Complete</strong> subscription, which is required to protect and store files on ChainFS.</p>
+            <p style="margin-bottom:1em">Your joliroAI account does not have an active <strong>Complete</strong> subscription, which is required to protect and store files on ChainFS.</p>
             <a href="https://acorn.tools" target="_blank" rel="noopener noreferrer" class="button button--block" style="display:inline-block;max-width:16em">
               Upgrade at acorn.tools
             </a>

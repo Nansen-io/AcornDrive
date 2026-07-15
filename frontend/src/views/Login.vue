@@ -23,7 +23,7 @@
     <form class="card login-card" :class="{ 'tombstone': eventTheme === 'halloween' }" @submit="submit">
       <div class="login-brand">
         <!-- eslint-disable @intlify/vue-i18n/no-raw-text -->
-        <img :src="staticBase + 'img/icons/acorndrive-logo.png'" class="acorndrive-logo" alt="acorndrive" />
+        <img :src="staticBase + 'img/icons/acorndrive-logo.png'" class="acorndrive-logo" alt="joliroDrive" />
         <!-- eslint-enable @intlify/vue-i18n/no-raw-text -->
       </div>
       <transition name="login-options" @before-enter="beforeEnter" @enter="enter" @leave="leave">
@@ -63,7 +63,7 @@
             <div v-if="passwordAvailable || oidcAvailable" class="or">{{ $t("login.or") }}</div>
             <div v-if="subscriptionError" class="subscription-error card">
               <!-- eslint-disable @intlify/vue-i18n/no-raw-text -->
-              <p>An active <strong>acornDrive</strong> subscription is required to access acornDrive</p>
+              <p>An active <strong>joliroDrive</strong> subscription is required to access joliroDrive</p>
               <a href="https://www.acorn.tools/subscription" target="_blank" rel="noopener noreferrer" class="upgrade-link">Upgrade at acorn.tools</a>
               <!-- eslint-enable @intlify/vue-i18n/no-raw-text -->
             </div>
@@ -425,6 +425,12 @@ export default {
 .acorndrive-logo {
   width: 12em;
   height: auto;
+}
+
+/* Dark login card: knock the two-tone wordmark out to white so the
+   near-black product word stays legible on the dark surface. */
+.dark-mode .acorndrive-logo {
+  filter: brightness(0) invert(1);
 }
 
 .password-entry {
