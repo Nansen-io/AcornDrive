@@ -198,21 +198,37 @@ func chainfsCallbackHandler(w http.ResponseWriter, r *http.Request, d *requestCo
 	}
 	clearSilentCookie(w, r)
 
-	// B2C reports failures as ?error=..., not as a missing code. A silent attempt legitimately
-	// fails with login_required/interaction_required when there is no usable B2C session; the user
-	// is already signed in to Drive via SSO, so send them on to the app rather than to an error
-	// page. They simply have no ChainFS token, which protectHandler reports honestly if they try
-	// to protect a file.
+	// B2C reports failures as ?error=..., not as a missing code.
 	if b2cErr := r.URL.Query().Get("error"); b2cErr != "" {
 		redirectTarget := sanitizeLocalRedirect(redirectFromState(state))
+		desc := truncateString(r.URL.Query().Get("error_description"), 160)
+
+		// A silent (prompt=none) attempt after the SSO handover fails with
+		// login_required/interaction_required when there is no B2C session for THIS user-flow.
+		// The hub and Drive use different B2C policies, and B2C sessions are per-policy, so the
+		// hub's session never satisfies Drive's silent request on a first visit. Fall back to an
+		// interactive login (no prompt=none) to actually obtain the token. The user's directory
+		// account is shared across policies, so they can sign in here, and this also establishes a
+		// session under Drive's policy so future silent re-auths succeed.
+		if silent && (b2cErr == "login_required" || b2cErr == "interaction_required") {
+			logger.Infof("ChainFS: no B2C session for silent re-auth (%s) — falling back to interactive login", b2cErr)
+			interactiveLogin := fmt.Sprintf("%sapi/auth/chainfs/login?redirect=%s",
+				config.Server.BaseURL, url.QueryEscape(redirectTarget))
+			http.Redirect(w, r, interactiveLogin, http.StatusFound)
+			return 0, nil
+		}
+
+		// A silent attempt that failed for any other reason: don't block the user, just continue
+		// without a token (protectHandler reports the missing credentials honestly).
 		if silent {
-			logger.Infof("ChainFS: silent re-auth did not complete (%s: %s) — continuing without a ChainFS token",
-				b2cErr, truncateString(r.URL.Query().Get("error_description"), 120))
+			logger.Infof("ChainFS: silent re-auth did not complete (%s: %s) — continuing without a ChainFS token", b2cErr, desc)
 			http.Redirect(w, r, redirectTarget, http.StatusFound)
 			return 0, nil
 		}
-		logger.Errorf("ChainFS callback returned error=%s description=%s",
-			b2cErr, truncateString(r.URL.Query().Get("error_description"), 200))
+
+		// An interactive attempt failed (e.g. the user cancelled the B2C form). Terminal — do not
+		// loop back into login.
+		logger.Errorf("ChainFS callback returned error=%s description=%s", b2cErr, desc)
 		http.Redirect(w, r, fmt.Sprintf("%slogin?error=chainfs", config.Server.BaseURL), http.StatusFound)
 		return 0, nil
 	}
