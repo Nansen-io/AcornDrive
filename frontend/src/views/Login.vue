@@ -23,7 +23,7 @@
     <form class="card login-card" :class="{ 'tombstone': eventTheme === 'halloween' }" @submit="submit">
       <div class="login-brand">
         <!-- eslint-disable @intlify/vue-i18n/no-raw-text -->
-        <img :src="staticBase + 'img/icons/acorndrive-logo.png'" class="acorndrive-logo" alt="joliroDrive" />
+        <img :src="staticBase + 'img/icons/joliro-brand.png'" class="joliro-logo" alt="joliroDrive" />
         <!-- eslint-enable @intlify/vue-i18n/no-raw-text -->
       </div>
       <transition name="login-options" @before-enter="beforeEnter" @enter="enter" @leave="leave">
@@ -422,14 +422,14 @@ export default {
   align-items: center;
 }
 
-.acorndrive-logo {
+.joliro-logo {
   width: 12em;
   height: auto;
 }
 
 /* Dark login card: knock the two-tone wordmark out to white so the
    near-black product word stays legible on the dark surface. */
-.dark-mode .acorndrive-logo {
+.dark-mode .joliro-logo {
   filter: brightness(0) invert(1);
 }
 
