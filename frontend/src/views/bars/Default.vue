@@ -10,6 +10,12 @@
     <search v-if="showSearch" />
     <title v-else class="topTitle" :class="{ 'topTitle--settings': isSettings }">{{ getTopTitle }}</title>
     <action
+      class="privacy-button"
+      icon="visibility_off"
+      :label="$t('buttons.privacyScreen')"
+      @action="enablePrivacyScreen"
+    />
+    <action
       v-if="isListingView && !disableNavButtons"
       class="menu-button"
       :icon="viewIcon"
@@ -178,6 +184,10 @@ export default {
       const newViewMode = this.viewModes[next];
       mutations.updateDisplayPreferences({ viewMode: newViewMode });
       mutations.updateCurrentUser({ viewMode: newViewMode });
+    },
+    enablePrivacyScreen() {
+      mutations.closeHovers();
+      mutations.setPrivacyScreen(true);
     },
     multiAction() {
       const cv = getters.currentView();

@@ -744,7 +744,7 @@ func setDefaults(generate bool) Settings {
 			},
 		},
 		Frontend: Frontend{
-			Name: "AcornDrive",
+			Name: "joliroDrive",
 		},
 
 		UserDefaults: UserDefaults{

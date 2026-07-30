@@ -538,12 +538,39 @@ body.rtl #listingView {
   border: 0.2em solid var(--primaryColor) !important;
 }
 
+/* Tile views (normal / gallery / icons) show only the name. Size, last-modified,
+   date-created, type and duration are list-only columns, so they are hidden on both
+   the item cards AND the column header in every tile view. list / compact keep them. */
+#listingView.normal .listing-item .size,
+#listingView.normal .listing-item .modified,
+#listingView.normal .listing-item .created,
+#listingView.normal .listing-item .type,
+#listingView.normal .listing-item .duration,
 #listingView.gallery .listing-item .size,
 #listingView.gallery .listing-item .modified,
+#listingView.gallery .listing-item .created,
+#listingView.gallery .listing-item .type,
 #listingView.gallery .listing-item .duration,
 #listingView.icons .listing-item .size,
 #listingView.icons .listing-item .modified,
-#listingView.icons .listing-item .duration {
+#listingView.icons .listing-item .created,
+#listingView.icons .listing-item .type,
+#listingView.icons .listing-item .duration,
+#listingView.normal .header .size,
+#listingView.normal .header .modified,
+#listingView.normal .header .created,
+#listingView.normal .header .type,
+#listingView.normal .header .duration,
+#listingView.gallery .header .size,
+#listingView.gallery .header .modified,
+#listingView.gallery .header .created,
+#listingView.gallery .header .type,
+#listingView.gallery .header .duration,
+#listingView.icons .header .size,
+#listingView.icons .header .modified,
+#listingView.icons .header .created,
+#listingView.icons .header .type,
+#listingView.icons .header .duration {
   display: none !important;
 }
 

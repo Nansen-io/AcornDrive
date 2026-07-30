@@ -25,6 +25,7 @@ export const state = reactive({
   isMobile: window.innerWidth <= 800,
   isSearchActive: false,
   showSidebar: false,
+  showPrivacyScreen: false, // ephemeral "privacy screen" blur overlay (dismisses on next interaction)
   displayPreferences: {},
   usages: {},
   editor: null,

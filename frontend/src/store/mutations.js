@@ -583,6 +583,13 @@ export const mutations = {
     state.isSearchActive = value;
     emitStateChanged();
   },
+  setPrivacyScreen: (value) => {
+    if (value == state.showPrivacyScreen) {
+      return;
+    }
+    state.showPrivacyScreen = value;
+    emitStateChanged();
+  },
   resetAll: () => {
     state.isSearchActive = false;
     state.selected = [];
