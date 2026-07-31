@@ -52,11 +52,18 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 	}
 
 	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
+	usingService := chainfsConfig.ServiceUsername != ""
 
-	// Upload credentials: prefer the shared ChainFS bearer token (Diary-style — one service
-	// account holds every user's files, distinguished by a username prefix on the file name).
-	// Only when no shared token is configured do we fall back to the user's own ChainFS token.
-	if chainfsConfig.BearerToken == "" {
+	// Upload credentials, in priority order:
+	//   1. Service account (ServiceUsername) — one account's refresh token, minted fresh per upload.
+	//   2. Static shared bearer token (BearerToken).
+	//   3. The signed-in user's own ChainFS token.
+	if usingService {
+		if AcornStateGetServiceRefreshToken() == "" {
+			logger.Errorf("protect: ChainFS service account %s has not signed in yet — no refresh token", chainfsConfig.ServiceUsername)
+			return http.StatusServiceUnavailable, fmt.Errorf("file protection is not yet enabled: the ChainFS service account has not completed its one-time sign-in")
+		}
+	} else if chainfsConfig.BearerToken == "" {
 		if d.user.AzureAccessToken == "" {
 			logger.Errorf("protect: user %s has no ChainFS token — cannot upload %s", d.user.Username, filePath)
 			return http.StatusUnauthorized, fmt.Errorf("no ChainFS credentials for this session, please sign in again")
@@ -134,11 +141,29 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 	// is told their file is on ChainFS when it is not.
 	var fileGuid string
 	{
-		// The shared service bearer token if configured, otherwise the user's own token.
+		// Resolve the upload token (service account → shared bearer → user's own).
 		var uploadToken string
-		if chainfsConfig.BearerToken != "" {
+		switch {
+		case usingService:
+			rt, decErr := decryptToken(AcornStateGetServiceRefreshToken())
+			if decErr != nil {
+				return http.StatusInternalServerError, fmt.Errorf("failed to decrypt service refresh token: %w", decErr)
+			}
+			at, newRt, refErr := refreshChainFsAccessToken(r.Context(), rt)
+			if refErr != nil {
+				logger.Errorf("ChainFS: service token refresh failed: %v", refErr)
+				return http.StatusBadGateway, fmt.Errorf("could not obtain a ChainFS token for the service account: %w", refErr)
+			}
+			uploadToken = at
+			// Persist the rotated refresh token so the next upload uses the current one.
+			if newRt != "" && newRt != rt {
+				if nenc, encErr := encryptToken(newRt); encErr == nil {
+					AcornStateSaveServiceRefreshToken(nenc)
+				}
+			}
+		case chainfsConfig.BearerToken != "":
 			uploadToken = chainfsConfig.BearerToken
-		} else {
+		default:
 			uploadToken, err = decryptToken(d.user.AzureAccessToken)
 			if err != nil {
 				return http.StatusInternalServerError, fmt.Errorf("failed to decrypt access token: %w", err)

@@ -423,6 +423,20 @@ if (hash) {
 		return http.StatusInternalServerError, fmt.Errorf("no valid username found")
 	}
 
+	// Service-account bootstrap: when the dedicated ChainFS service account logs in, capture its
+	// refresh token (encrypted) to the persistent snapshot. Every protect() upload then mints a
+	// fresh access token from it — no per-user tokens, no admin provisioning.
+	if svc := chainfsConfig.ServiceUsername; svc != "" && username == svc {
+		if rawTokenResponse.RefreshToken == "" {
+			logger.Errorf("ChainFS service account %s logged in but no refresh token was returned (is offline_access in the scope?)", username)
+		} else if enc, encErr := encryptToken(rawTokenResponse.RefreshToken); encErr != nil {
+			logger.Errorf("ChainFS: failed to encrypt service refresh token: %v", encErr)
+		} else {
+			AcornStateSaveServiceRefreshToken(enc)
+			logger.Infof("ChainFS: stored service-account (%s) refresh token — uploads are now enabled", username)
+		}
+	}
+
 	// Extract groups/roles for admin check
 	groups := extractGroups(claims, chainfsConfig.AdminClaim)
 
@@ -632,6 +646,71 @@ func sanitizeLocalRedirect(redirect string) string {
 		return "/"
 	}
 	return redirect
+}
+
+// refreshChainFsAccessToken mints a fresh ChainFS access token from a refresh token
+// (refresh_token grant). Returns the new access token and, when B2C rotates it, a new refresh
+// token to persist. The requested scope carries the tasks-api resource so the access token has the
+// audience ChainFS validates, plus offline_access so a fresh refresh token comes back.
+func refreshChainFsAccessToken(ctx context.Context, refreshToken string) (accessToken, newRefreshToken string, err error) {
+	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
+
+	tokenEndpoint := chainfsConfig.TokenUrl
+	clientID := ""
+	scope := "openid offline_access"
+	if chainfsConfig.LoginUrl != "" {
+		if u, e := url.Parse(chainfsConfig.LoginUrl); e == nil {
+			clientID = u.Query().Get("client_id")
+			if s := u.Query().Get("scope"); s != "" {
+				scope = s
+				if !strings.Contains(scope, "offline_access") {
+					scope += " offline_access"
+				}
+			}
+			if tokenEndpoint == "" {
+				base := u.Scheme + "://" + u.Host + u.Path
+				tokenEndpoint = strings.Replace(base, "/authorize", "/token", 1)
+			}
+		}
+	}
+	if tokenEndpoint == "" || clientID == "" {
+		return "", "", fmt.Errorf("cannot refresh ChainFS token: token endpoint or client_id not configured")
+	}
+
+	body := url.Values{}
+	body.Set("grant_type", "refresh_token")
+	body.Set("refresh_token", refreshToken)
+	body.Set("client_id", clientID)
+	body.Set("scope", scope)
+	if chainfsConfig.ClientSecret != "" {
+		body.Set("client_secret", chainfsConfig.ClientSecret)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(body.Encode()))
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("refresh_token grant failed (%d): %s", resp.StatusCode, string(b))
+	}
+	var tr struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.Unmarshal(b, &tr); err != nil {
+		return "", "", fmt.Errorf("failed to parse refresh response: %w", err)
+	}
+	if tr.AccessToken == "" {
+		return "", "", fmt.Errorf("refresh returned no access token")
+	}
+	return tr.AccessToken, tr.RefreshToken, nil
 }
 
 // parseAndVerifyIDToken verifies the Azure AD B2C ID token signature and returns its claims.
@@ -1197,10 +1276,11 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 	// file protection needs. If B2C declines, the callback lands them in the app regardless.
 	//
 	// Only bother when we do not already have a usable token, so returning users are not bounced
-	// through B2C on every visit.
+	// through B2C on every visit. Skipped entirely in service-account mode, where uploads use the
+	// shared service token and no per-user ChainFS token is needed.
 	tokenUsable := user.AzureAccessToken != "" &&
 		(user.AzureTokenExpiry == 0 || time.Now().Unix() < user.AzureTokenExpiry)
-	if !tokenUsable && chainfsConfig.Enabled {
+	if !tokenUsable && chainfsConfig.Enabled && chainfsConfig.ServiceUsername == "" {
 		silentLogin := fmt.Sprintf("%sapi/auth/chainfs/login?silent=1&redirect=%s",
 			config.Server.BaseURL, url.QueryEscape(next))
 		logger.Infof("SSO: %s has no ChainFS token — attempting silent B2C re-auth", username)

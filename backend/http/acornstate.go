@@ -37,6 +37,10 @@ type acornSafeModeEntry struct {
 type acornStateData struct {
 	Protections map[string]acornProtectionEntry `json:"protections"`
 	SafeMode    map[string]acornSafeModeEntry   `json:"safeMode"`
+	// ServiceRefreshToken is the ChainFS service account's refresh token (AES-GCM encrypted),
+	// captured on its one-time login and rotated on each use. Persisted here (on the /srv volume)
+	// so it survives the ephemeral BoltDB being wiped on every redeploy.
+	ServiceRefreshToken string `json:"serviceRefreshToken,omitempty"`
 }
 
 var (
@@ -160,6 +164,22 @@ func AcornStateSaveSafeMode(username, pinHash string, items []users.SafeModeItem
 	}
 	acornState.SafeMode[username] = acornSafeModeEntry{PINHash: pinHash, Items: items}
 	saveAcornStateLocked()
+}
+
+// AcornStateSaveServiceRefreshToken persists the (encrypted) ChainFS service-account refresh
+// token to the /srv snapshot so it survives redeploys.
+func AcornStateSaveServiceRefreshToken(encryptedToken string) {
+	acornStateMu.Lock()
+	defer acornStateMu.Unlock()
+	acornState.ServiceRefreshToken = encryptedToken
+	saveAcornStateLocked()
+}
+
+// AcornStateGetServiceRefreshToken returns the persisted (encrypted) service-account refresh token.
+func AcornStateGetServiceRefreshToken() string {
+	acornStateMu.Lock()
+	defer acornStateMu.Unlock()
+	return acornState.ServiceRefreshToken
 }
 
 // AcornStateGetSafeMode returns the persisted SAFEMode state for a user, or nil if not found.

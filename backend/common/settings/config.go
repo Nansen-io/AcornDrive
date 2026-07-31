@@ -636,6 +636,10 @@ func loadEnvConfig() {
 		Config.Auth.Methods.ChainFsAuth.BearerToken = v
 		logger.Info("Using shared ChainFS bearer token from FILEBROWSER_CHAINFS_BEARER_TOKEN environment variable")
 	}
+	if v := os.Getenv("FILEBROWSER_CHAINFS_SERVICE_USERNAME"); v != "" {
+		Config.Auth.Methods.ChainFsAuth.ServiceUsername = v
+		logger.Infof("ChainFS service-account mode: uploads use the '%s' account's token", v)
+	}
 	if v := os.Getenv("FILEBROWSER_CHAINFS_ISSUER_URL"); v != "" {
 		Config.Auth.Methods.ChainFsAuth.IssuerUrl = v
 		logger.Info("Using ChainFS issuer URL from FILEBROWSER_CHAINFS_ISSUER_URL environment variable")

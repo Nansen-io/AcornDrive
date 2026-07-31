@@ -16,36 +16,37 @@ auth:
   methods:
     chainfs:
       enabled: true
-      # DEV client (ae8e4cce) is a PUBLIC client — auth-code + PKCE needs no secret.
+      # clientSecret is a secret and MUST NOT live in this public file. f415826b is a confidential
+      # client, so the one-time service-account login (and any interactive user login) needs it —
+      # inject it via FILEBROWSER_CHAINFS_CLIENT_SECRET on the Container App.
       clientSecret: ""
       createUser: true
       adminClaim: "roles"
       adminClaimValue: "admin"
 
-      # --- Identity + Storage: DEV (nansendev2 B2C + nansendev ChainFS) ------------------------
-      # The whole working stack — Diary and the hub's ChainFS provisioning — runs on DEV, so Drive
-      # runs on DEV too, on the SAME ChainFS the provisioning writes to. (Confirmed live: Diary
-      # logs in at nansendev2; the hub provisions via the dev ChainFS API's PATCH method.)
-      # Consolidating everything onto a single prod directory is a later, separate migration.
-      #
-      # Policy B2C_1_signupsignin1 (same as Diary). Drive upgrades this to auth-code + PKCE at
-      # runtime and appends offline_access.
-      loginUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/oauth2/v2.0/authorize?client_id=ae8e4cce-f313-459b-b86b-2fa59b4f1cb8&scope=openid+profile+https%3A%2F%2FNansenDEV2.onmicrosoft.com%2Ftasks-api%2Faccess_as_user"
-      tokenUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/oauth2/v2.0/token"
-      logoutUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/oauth2/v2.0/logout"
+      # --- PRODUCTION (nansenprod B2C + nansenprod ChainFS) -----------------------------------
+      # Everything runs in PROD. User login uses the hub's B2C user-flow (B2C_1_signup_signin) so
+      # the hub SSO carries over seamlessly. ChainFS uploads use the shared SERVICE ACCOUNT token
+      # (serviceUsername below), NOT per-user tokens — so no per-user provisioning is needed.
+      loginUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/authorize?client_id=f415826b-2d06-44ef-aba1-4ec5ef1036f9&scope=openid+profile+https%3A%2F%2Fnansenprod.onmicrosoft.com%2Ftasks-api%2Faccess_as_user"
+      tokenUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/token"
+      logoutUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/logout"
 
-      # issuerUrl is REQUIRED (fail-closed verification). B2C needs two non-interchangeable urls:
-      #   issuerUrl    — the `iss` B2C mints (tenant-GUID form). No metadata is served here.
-      #   discoveryUrl — where the metadata lives (user-flow path).
-      # Both verified against the live dev tenant.
-      issuerUrl: "https://nansendev2.b2clogin.com/c87e0a28-0665-4f48-bf3b-a1060d182293/v2.0/"
-      discoveryUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/v2.0"
+      # issuerUrl (the `iss` B2C mints, tenant-GUID form) + discoveryUrl (metadata, user-flow path).
+      # Both verified live against the prod tenant.
+      issuerUrl: "https://nansenprod.b2clogin.com/61d0f6a1-da97-435e-a1af-1ca7c26998b6/v2.0/"
+      discoveryUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/v2.0"
 
-      # ChainFS storage — DEV, matching where the hub provisions subscriptions.
-      apiBaseUrl: "https://nansendev.azurewebsites.net"
+      # ChainFS storage — PRODUCTION.
+      apiBaseUrl: "https://nansenprod.azurewebsites.net"
 
-      # Every value above can be overridden per-deployment via FILEBROWSER_CHAINFS_{ISSUER,
-      # DISCOVERY,LOGIN,TOKEN,LOGOUT}_URL and FILEBROWSER_CHAINFS_API_BASE_URL on the Container App.
+      # serviceUsername: the dedicated ChainFS service account's B2C sub. Set it (and the client
+      # secret) on the Container App via FILEBROWSER_CHAINFS_SERVICE_USERNAME. When set, every
+      # protected file is uploaded under this one account (named "<userID>_<filename>") using its
+      # refresh token, captured on its one-time login.
+      serviceUsername: ""
+
+      # Every value above can be overridden per-deployment via the FILEBROWSER_CHAINFS_* env vars.
     password:
       enabled: false
     oidc:
