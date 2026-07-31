@@ -632,6 +632,10 @@ func loadEnvConfig() {
 		Config.Auth.Methods.ChainFsAuth.ClientSecret = v
 		logger.Info("Using ChainFS client secret from FILEBROWSER_CHAINFS_CLIENT_SECRET environment variable")
 	}
+	if v := os.Getenv("FILEBROWSER_CHAINFS_BEARER_TOKEN"); v != "" {
+		Config.Auth.Methods.ChainFsAuth.BearerToken = v
+		logger.Info("Using shared ChainFS bearer token from FILEBROWSER_CHAINFS_BEARER_TOKEN environment variable")
+	}
 	if v := os.Getenv("FILEBROWSER_CHAINFS_ISSUER_URL"); v != "" {
 		Config.Auth.Methods.ChainFsAuth.IssuerUrl = v
 		logger.Info("Using ChainFS issuer URL from FILEBROWSER_CHAINFS_ISSUER_URL environment variable")

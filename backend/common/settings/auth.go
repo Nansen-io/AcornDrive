@@ -101,6 +101,7 @@ type ChainFsConfig struct {
 	TokenUrl         string `json:"tokenUrl"`         // Azure B2C token endpoint. Used with LoginUrl to avoid the ChainFS API call on every callback.
 	LogoutUrl        string `json:"logoutUrl"`        // Azure B2C logout endpoint. When set, avoids deriving the logout URL from apiBaseUrl.
 	ClientSecret     string `json:"clientSecret"`     // Azure AD B2C client secret
+	BearerToken      string `json:"bearerToken"`      // secret: shared ChainFS bearer token used for uploads (Diary-style). When set, ALL protected files are uploaded under this one ChainFS account instead of each user's own token; the file name is prefixed with the username for ownership. Supply via FILEBROWSER_CHAINFS_BEARER_TOKEN.
 	CreateUser       bool   `json:"createUser"`       // create user if not exists
 	AdminClaim       string `json:"adminClaim"`       // claim to check for admin status (e.g., "roles" or "groups")
 	AdminClaimValue  string `json:"adminClaimValue"`  // value that grants admin privileges (e.g., "admin")

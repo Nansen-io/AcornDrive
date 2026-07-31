@@ -51,16 +51,19 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 		return http.StatusForbidden, fmt.Errorf("ChainFS account required to protect files")
 	}
 
-	// Protection means "uploaded to ChainFS". Without ChainFS credentials we cannot do that, and we
-	// must not pretend otherwise — an earlier version minted a fake FileGuid here and returned 200,
-	// so users were told files were protected when nothing had been uploaded. Fail honestly instead.
-	if d.user.AzureAccessToken == "" {
-		logger.Errorf("protect: user %s has no ChainFS token — cannot upload %s", d.user.Username, filePath)
-		return http.StatusUnauthorized, fmt.Errorf("no ChainFS credentials for this session, please sign in again")
-	}
+	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
 
-	if d.user.AzureTokenExpiry > 0 && time.Now().Unix() > d.user.AzureTokenExpiry {
-		return http.StatusUnauthorized, fmt.Errorf("ChainFS token expired, please re-authenticate")
+	// Upload credentials: prefer the shared ChainFS bearer token (Diary-style — one service
+	// account holds every user's files, distinguished by a username prefix on the file name).
+	// Only when no shared token is configured do we fall back to the user's own ChainFS token.
+	if chainfsConfig.BearerToken == "" {
+		if d.user.AzureAccessToken == "" {
+			logger.Errorf("protect: user %s has no ChainFS token — cannot upload %s", d.user.Username, filePath)
+			return http.StatusUnauthorized, fmt.Errorf("no ChainFS credentials for this session, please sign in again")
+		}
+		if d.user.AzureTokenExpiry > 0 && time.Now().Unix() > d.user.AzureTokenExpiry {
+			return http.StatusUnauthorized, fmt.Errorf("ChainFS token expired, please re-authenticate")
+		}
 	}
 
 	// Check subscription — prefer live acorn.tools check; fall back to cached flag.
@@ -131,23 +134,32 @@ func protectHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 	// is told their file is on ChainFS when it is not.
 	var fileGuid string
 	{
-		accessToken, err := decryptToken(d.user.AzureAccessToken)
-		if err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to decrypt access token: %w", err)
+		// The shared service bearer token if configured, otherwise the user's own token.
+		var uploadToken string
+		if chainfsConfig.BearerToken != "" {
+			uploadToken = chainfsConfig.BearerToken
+		} else {
+			uploadToken, err = decryptToken(d.user.AzureAccessToken)
+			if err != nil {
+				return http.StatusInternalServerError, fmt.Errorf("failed to decrypt access token: %w", err)
+			}
 		}
 		aesPassword := deriveUserAESPassword(d.user)
-		chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
+
+		// Prefix the ChainFS file name with the username so ownership is identifiable even when a
+		// single shared account holds every user's files.
+		uploadName := d.user.Username + "_" + stat.Name()
 
 		if stat.Size() > segmentThreshold {
-			fileGuid, err = chainfs.UploadFileSegmented(chainfsConfig.ApiBaseUrl, accessToken, stat.Name(), f, stat.Size(), aesPassword)
+			fileGuid, err = chainfs.UploadFileSegmented(chainfsConfig.ApiBaseUrl, uploadToken, uploadName, f, stat.Size(), aesPassword)
 		} else {
-			fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, accessToken, stat.Name(), f, aesPassword)
+			fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, uploadToken, uploadName, f, aesPassword)
 		}
 		if err != nil {
 			logger.Errorf("ChainFS upload failed for %s: %v", fileInfo.RealPath, err)
 			return http.StatusBadGateway, fmt.Errorf("ChainFS upload failed: %w", err)
 		}
-		logger.Infof("ChainFS upload succeeded for %s, FileGuid: %s", fileInfo.RealPath, fileGuid)
+		logger.Infof("ChainFS upload succeeded for %s (as %s), FileGuid: %s", fileInfo.RealPath, uploadName, fileGuid)
 	}
 
 	// Persist protection metadata to database and central state file
