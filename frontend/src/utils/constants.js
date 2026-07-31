@@ -10,7 +10,7 @@ const settings = [
   { id: 'notifications', label: 'notifications.title', component: 'NotificationsSettings', icon: 'notifications' },
   { id: 'shares', label: 'settings.shareSettings', component: 'SharesSettings', permissions: { share: true }, icon: 'share' },
   { id: 'api', label: 'api.title', component: 'ApiKeys', permissions: { api: true }, icon: 'key' },
-  { id: 'users', label: 'settings.userManagement', component: 'UserManagement', icon: 'group' },
+  // User Management removed from joliroDrive — account/user administration lives in the monitor.
   { id: 'access', label: 'access.accessManagement', component: 'AccessSettings', permissions: { admin: true }, icon: 'lock' },
   { id: 'systemAdmin', label: 'settings.systemAdmin', component: 'SystemAdmin', permissions: { admin: true }, icon: 'admin_panel_settings' },
   { id: 'adminDashboard', label: 'settings.adminDashboard', component: 'AdminDashboard', permissions: { admin: true }, icon: 'dashboard' },

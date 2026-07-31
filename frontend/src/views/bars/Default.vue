@@ -1,5 +1,11 @@
 <template>
   <header v-if="!isOnlyOffice" :class="['flexbar', { 'dark-mode-header': isDarkMode }]">
+    <!-- joliroDrive brand, top-left. The wordmark image reads "joliro"; append "Drive". -->
+    <div class="header-brand">
+      <img class="header-logo" :src="logoSrc" alt="joliro" />
+      <!-- eslint-disable-next-line @intlify/vue-i18n/no-raw-text -->
+      <span class="header-brand-suffix">Drive</span>
+    </div>
     <action
       v-if="!disableNavButtons"
       icon="close_back"
@@ -49,8 +55,6 @@
         </svg>
         <span>{{ $t('buttons.privacyScreen') }}</span>
       </button>
-      <!-- eslint-disable-next-line @intlify/vue-i18n/no-raw-text -->
-      <img class="header-logo" :src="logoSrc" alt="joliroDrive" />
     </div>
   </header>
 </template>
@@ -277,12 +281,28 @@ export default {
   font-weight: 700;
 }
 
-/* Right-aligned header cluster: view control, privacy button, joliroDrive logo. */
+/* joliroDrive brand, top-left. */
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.1em;
+  flex-shrink: 0;
+  margin-right: 0.75em;
+}
+.header-brand-suffix {
+  font-size: 1.25em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #f4f8f8 !important;
+}
+
+/* Right-aligned header cluster: view control + privacy button. */
 .header-right {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 0.5em;
+  flex-shrink: 0;
 }
 
 /* Privacy Screen button — matches the landing page's white pill exactly.
@@ -300,6 +320,7 @@ export default {
   border: 1px solid #e5e7eb;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: background-color 0.15s, color 0.15s;
 }
 .privacy-pill,
