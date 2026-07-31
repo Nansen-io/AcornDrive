@@ -4,7 +4,7 @@ server:
   externalUrl: "https://drive.acorn.tools"
   sources:
     - path: "/srv"
-      name: "acornDrive"
+      name: "joliroDrive"
       config:
         defaultEnabled: true
         defaultUserScope: "/users"
