@@ -16,47 +16,36 @@ auth:
   methods:
     chainfs:
       enabled: true
-      # clientSecret is a secret and MUST NOT live in this (public) file. It is injected at deploy
-      # time as a Container App secret referenced by FILEBROWSER_CHAINFS_CLIENT_SECRET (see
-      # deploy.yml). The env var overrides this empty value at runtime.
+      # DEV client (ae8e4cce) is a PUBLIC client — auth-code + PKCE needs no secret.
       clientSecret: ""
       createUser: true
       adminClaim: "roles"
       adminClaimValue: "admin"
 
-      # --- Identity: Azure AD B2C (PRODUCTION tenant: nansenprod) ------------------------------
-      # Uses the SAME user-flow as the acorn.tools hub (B2C_1_signup_signin). B2C SSO sessions are
-      # per-user-flow, so matching the hub's flow lets a user who signed in at the hub reach Drive
-      # with no second login (silent prompt=none succeeds). client_id f415826b is Drive's own app
-      # (its callback is registered on it); it is a confidential client, hence clientSecret above.
+      # --- Identity + Storage: DEV (nansendev2 B2C + nansendev ChainFS) ------------------------
+      # The whole working stack — Diary and the hub's ChainFS provisioning — runs on DEV, so Drive
+      # runs on DEV too, on the SAME ChainFS the provisioning writes to. (Confirmed live: Diary
+      # logs in at nansendev2; the hub provisions via the dev ChainFS API's PATCH method.)
+      # Consolidating everything onto a single prod directory is a later, separate migration.
       #
-      # Drive upgrades this to an authorization-code + PKCE flow at runtime (response_type=code,
-      # response_mode=query) and appends offline_access, so it receives a refresh token.
-      loginUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/authorize?client_id=f415826b-2d06-44ef-aba1-4ec5ef1036f9&scope=openid+profile+https%3A%2F%2Fnansenprod.onmicrosoft.com%2Ftasks-api%2Faccess_as_user"
-      tokenUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/token"
-      logoutUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/logout"
+      # Policy B2C_1_signupsignin1 (same as Diary). Drive upgrades this to auth-code + PKCE at
+      # runtime and appends offline_access.
+      loginUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/oauth2/v2.0/authorize?client_id=ae8e4cce-f313-459b-b86b-2fa59b4f1cb8&scope=openid+profile+https%3A%2F%2FNansenDEV2.onmicrosoft.com%2Ftasks-api%2Faccess_as_user"
+      tokenUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/oauth2/v2.0/token"
+      logoutUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/oauth2/v2.0/logout"
 
-      # issuerUrl is REQUIRED — without it, interactive B2C logins are REFUSED. createUser is true
-      # and admin is granted from a token claim (adminClaim above), so accepting an ID token whose
-      # signature nobody verified would be an admin-forgery primitive.
-      #
-      # B2C needs TWO urls and they are NOT interchangeable:
-      #   issuerUrl    — the `iss` B2C actually mints (tenant-GUID form). No metadata is served here.
-      #   discoveryUrl — where the metadata lives (user-flow path). Derived from loginUrl if omitted.
-      # Verified against the live tenant: fetching discovery from issuerUrl 404s, and the metadata
-      # under the user-flow path reports the GUID issuer. Setting issuerUrl alone does NOT work.
-      # The issuer is the same across user-flows (tenant-GUID form), so it is unchanged.
-      issuerUrl: "https://nansenprod.b2clogin.com/61d0f6a1-da97-435e-a1af-1ca7c26998b6/v2.0/"
-      discoveryUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/v2.0"
+      # issuerUrl is REQUIRED (fail-closed verification). B2C needs two non-interchangeable urls:
+      #   issuerUrl    — the `iss` B2C mints (tenant-GUID form). No metadata is served here.
+      #   discoveryUrl — where the metadata lives (user-flow path).
+      # Both verified against the live dev tenant.
+      issuerUrl: "https://nansendev2.b2clogin.com/c87e0a28-0665-4f48-bf3b-a1060d182293/v2.0/"
+      discoveryUrl: "https://nansendev2.b2clogin.com/NansenDEV2.onmicrosoft.com/B2C_1_signupsignin1/v2.0"
 
-      # --- Storage: ChainFS (PRODUCTION) ------------------------------------------------------
-      # Identity and storage are configured independently, but share one Azure directory — so they
-      # move together. A PROD B2C token is not accepted by the DEV ChainFS API.
-      apiBaseUrl: "https://nansenprod.azurewebsites.net"
+      # ChainFS storage — DEV, matching where the hub provisions subscriptions.
+      apiBaseUrl: "https://nansendev.azurewebsites.net"
 
-      # Every value above can be overridden per-deployment, without a rebuild, via
-      # FILEBROWSER_CHAINFS_{ISSUER,DISCOVERY,LOGIN,TOKEN,LOGOUT}_URL and
-      # FILEBROWSER_CHAINFS_API_BASE_URL on the Container App.
+      # Every value above can be overridden per-deployment via FILEBROWSER_CHAINFS_{ISSUER,
+      # DISCOVERY,LOGIN,TOKEN,LOGOUT}_URL and FILEBROWSER_CHAINFS_API_BASE_URL on the Container App.
     password:
       enabled: false
     oidc:

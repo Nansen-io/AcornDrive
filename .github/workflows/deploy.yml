@@ -80,8 +80,6 @@ jobs:
           echo "SHA_TAG=$SHA_TAG" >> $GITHUB_ENV
 
       - name: Deploy to Container App
-        env:
-          FILEBROWSER_CHAINFS_CLIENT_SECRET: ${{ secrets.FILEBROWSER_CHAINFS_CLIENT_SECRET }}
         run: |
           az containerapp registry set \
             --name $CONTAINER_APP \
@@ -89,16 +87,7 @@ jobs:
             --server $REGISTRY \
             --identity system
 
-          # Inject the ChainFS B2C client secret as a Container App secret (never into the image
-          # or any yaml), referenced by the FILEBROWSER_CHAINFS_CLIENT_SECRET env var. prod only.
-          EXTRA_ENV=""
-          if [ "$ENV" = "prod" ] && [ -n "$FILEBROWSER_CHAINFS_CLIENT_SECRET" ]; then
-            az containerapp secret set \
-              --name $CONTAINER_APP \
-              --resource-group rg-acornDrive \
-              --secrets chainfs-client-secret="$FILEBROWSER_CHAINFS_CLIENT_SECRET"
-            EXTRA_ENV="--set-env-vars FILEBROWSER_CHAINFS_CLIENT_SECRET=secretref:chainfs-client-secret"
-          fi
+          # Drive runs on the DEV B2C directory (public client ae8e4cce) — no client secret needed.
 
           az containerapp update \
             --name $CONTAINER_APP \
