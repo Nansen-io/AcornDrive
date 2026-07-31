@@ -57,9 +57,10 @@ export default {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px) brightness(1.06);
-  -webkit-backdrop-filter: blur(10px) brightness(1.06);
+  /* Tint at 50% strength (halved from the original wash). */
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px) brightness(1.03);
+  -webkit-backdrop-filter: blur(10px) brightness(1.03);
   cursor: pointer;
 }
 </style>

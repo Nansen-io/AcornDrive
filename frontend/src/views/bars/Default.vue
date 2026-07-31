@@ -9,35 +9,49 @@
     />
     <search v-if="showSearch" />
     <title v-else class="topTitle" :class="{ 'topTitle--settings': isSettings }">{{ getTopTitle }}</title>
-    <action
-      class="privacy-button"
-      icon="visibility_off"
-      :label="$t('buttons.privacyScreen')"
-      @action="enablePrivacyScreen"
-    />
-    <action
-      v-if="isListingView && !disableNavButtons"
-      class="menu-button"
-      :icon="viewIcon"
-      :label="$t('buttons.switchView')"
-      @action="switchView"
-      :disabled="isDisabled"
-    />
-    <action
-      class="overflow-menu-button"
-      v-else-if="!isListingView && !showQuickSave && !isSettings"
-      :icon="iconName"
-      :disabled="noItems"
-      @click="toggleOverflow"
-    />
-    <action
-      class="save-button"
-      v-else-if="showQuickSave"
-      id="save-button"
-      icon="save"
-      :label="$t('general.save')"
-      @action="save()"
-    />
+    <div class="header-right">
+      <action
+        v-if="isListingView && !disableNavButtons"
+        class="menu-button"
+        :icon="viewIcon"
+        :label="$t('buttons.switchView')"
+        @action="switchView"
+        :disabled="isDisabled"
+      />
+      <action
+        class="overflow-menu-button"
+        v-else-if="!isListingView && !showQuickSave && !isSettings"
+        :icon="iconName"
+        :disabled="noItems"
+        @click="toggleOverflow"
+      />
+      <action
+        class="save-button"
+        v-else-if="showQuickSave"
+        id="save-button"
+        icon="save"
+        :label="$t('general.save')"
+        @action="save()"
+      />
+      <!-- Privacy Screen button — same format as the other joliro apps (landing page). -->
+      <button
+        type="button"
+        class="privacy-pill"
+        :title="$t('buttons.privacyScreen')"
+        @click="enablePrivacyScreen"
+      >
+        <svg class="privacy-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+          <line x1="2" x2="22" y1="2" y2="22" />
+        </svg>
+        <span>{{ $t('buttons.privacyScreen') }}</span>
+      </button>
+      <!-- eslint-disable-next-line @intlify/vue-i18n/no-raw-text -->
+      <img class="header-logo" :src="logoSrc" alt="joliroDrive" />
+    </div>
   </header>
 </template>
 
@@ -107,6 +121,9 @@ export default {
         gallery: "grid_view",
       };
       return icons[getters.viewMode()] || "grid_view";
+    },
+    logoSrc() {
+      return globalVars.baseURL + "public/static/img/icons/joliro-brand.png";
     },
     isShare() {
       return getters.isShare();
@@ -258,6 +275,56 @@ export default {
 .topTitle--settings {
   font-size: 1.8em;
   font-weight: 700;
+}
+
+/* Right-aligned header cluster: view control, privacy button, joliroDrive logo. */
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+/* Privacy Screen button — matches the landing page's white pill exactly.
+   Overrides the header's forced light text (header * !important) via .privacy-pill *. */
+.privacy-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  height: 2.25em;
+  padding: 0 0.75em;
+  border-radius: 0.5em;
+  font-size: 0.9em;
+  font-weight: 500;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+}
+.privacy-pill,
+.privacy-pill * {
+  color: #6b7280 !important;
+}
+.privacy-pill:hover {
+  background: #f9fafb;
+}
+.privacy-pill:hover,
+.privacy-pill:hover * {
+  color: #374151 !important;
+}
+.privacy-pill-icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+/* joliroDrive wordmark, knocked out to white to read on the teal header. */
+.header-logo {
+  height: 1.8em;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 :deep(button:has(#button-toggle-navbar)) {
