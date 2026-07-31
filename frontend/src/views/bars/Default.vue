@@ -1,11 +1,8 @@
 <template>
   <header v-if="!isOnlyOffice" :class="['flexbar', { 'dark-mode-header': isDarkMode }]">
-    <!-- joliroDrive brand, top-left. The wordmark image reads "joliro"; append "Drive". -->
-    <div class="header-brand">
-      <img class="header-logo" :src="logoSrc" alt="joliro" />
-      <!-- eslint-disable-next-line @intlify/vue-i18n/no-raw-text -->
-      <span class="header-brand-suffix">Drive</span>
-    </div>
+    <!-- joliroDrive brand, top-left. Matches the landing page's text treatment (Inter, bold). -->
+    <!-- eslint-disable-next-line @intlify/vue-i18n/no-raw-text -->
+    <span class="header-brand">joliroDrive</span>
     <action
       v-if="!disableNavButtons"
       icon="close_back"
@@ -281,18 +278,15 @@ export default {
   font-weight: 700;
 }
 
-/* joliroDrive brand, top-left. */
+/* joliroDrive brand, top-left — matches the landing page (Inter, bold). */
 .header-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.1em;
   flex-shrink: 0;
   margin-right: 0.75em;
-}
-.header-brand-suffix {
-  font-size: 1.25em;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1.35em;
   font-weight: 700;
   letter-spacing: -0.01em;
+  white-space: nowrap;
   color: #f4f8f8 !important;
 }
 
