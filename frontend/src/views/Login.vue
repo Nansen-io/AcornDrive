@@ -64,14 +64,14 @@
             <div v-if="subscriptionError" class="subscription-error card">
               <!-- eslint-disable @intlify/vue-i18n/no-raw-text -->
               <p>An active <strong>joliroDrive</strong> subscription is required to access joliroDrive</p>
-              <a href="https://www.acorn.tools/subscription" target="_blank" rel="noopener noreferrer" class="upgrade-link">Upgrade at acorn.tools</a>
+              <a href="https://joliro.org/subscription" target="_blank" rel="noopener noreferrer" class="upgrade-link">Upgrade at joliro.org</a>
               <!-- eslint-enable @intlify/vue-i18n/no-raw-text -->
             </div>
             <a :href="chainfsLoginURL" class="button button--block direct-login">
               <!-- eslint-disable-line @intlify/vue-i18n/no-raw-text -->
               Login
             </a>
-            <a href="https://acorn.tools" class="create-account-link" target="_blank" rel="noopener noreferrer">
+            <a href="https://joliro.org" class="create-account-link" target="_blank" rel="noopener noreferrer">
               <!-- eslint-disable-line @intlify/vue-i18n/no-raw-text -->
               Create an Account
             </a>

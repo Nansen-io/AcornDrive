@@ -504,7 +504,7 @@ class UploadManager {
     } else if (err?.response?.status === 402) {
       upload.status = "error";
       upload.errorDetails = "Storage quota exceeded";
-      notify.showToast("error", "Storage quota exceeded. Visit acorn.tools/subscriptions to upgrade your plan.", { duration: 8000 });
+      notify.showToast("error", "Storage quota exceeded. Visit joliro.org/subscriptions to upgrade your plan.", { duration: 8000 });
     } else if (err.message !== "Upload aborted") {
       upload.status = "error";
       // Store detailed error information for tooltip display
