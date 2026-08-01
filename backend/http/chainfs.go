@@ -498,7 +498,10 @@ func loginWithChainFsUser(w http.ResponseWriter, r *http.Request, username, disp
 		subscribed = userInfo.IsActive()
 		logger.Infof("ChainFS subscription for %s: enhancedSubscription=%v admin=%v", username, userInfo.EnhancedSubscription, isAdmin)
 	}
-	if !subscribed && !isAdmin {
+	// The ChainFS service account is not a licensed customer — it exists only to hold the shared
+	// upload token. Let it complete login (to capture its refresh token) regardless of the hub
+	// licence check. Real users still need a licence.
+	if !subscribed && !isAdmin && username != chainfsConfig.ServiceUsername {
 		loginURL := fmt.Sprintf("%slogin?error=subscription", config.Server.BaseURL)
 		http.Redirect(w, r, loginURL, http.StatusFound)
 		return 0, nil
