@@ -1,9 +1,13 @@
 package http
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -125,6 +129,76 @@ func internalChainfsFilesHandler(w http.ResponseWriter, r *http.Request, d *requ
 	}
 
 	return renderJSON(w, r, map[string]interface{}{"files": files, "total": total})
+}
+
+// internalChainfsUploadHandler handles POST /api/internal/chainfs/upload?owner=<id>&filename=<name>
+// — uploads the raw request body to ChainFS under the shared service account as "<owner>_<filename>".
+// For sibling joliro apps (Diary, ...) that can't hold the service token themselves. Authenticated
+// via x-api-key. Stored unencrypted so the bytes remain retrievable/verifiable (the returned sha256
+// is the real file hash). Returns {fileGuid, name, sizeBytes, sha256}.
+func internalChainfsUploadHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (int, error) {
+	if !internalAuthorized(r) {
+		logger.Warningf("[internal-chainfs] unauthorized upload attempt from %s", r.RemoteAddr)
+		return http.StatusUnauthorized, fmt.Errorf("unauthorized")
+	}
+
+	filename := r.URL.Query().Get("filename")
+	if filename == "" {
+		return http.StatusBadRequest, fmt.Errorf("filename is required")
+	}
+	owner := r.URL.Query().Get("owner")
+
+	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
+	if chainfsConfig.ServiceUsername == "" {
+		return http.StatusServiceUnavailable, fmt.Errorf("no ChainFS service account configured")
+	}
+
+	token, err := serviceChainfsToken(r.Context())
+	if err != nil {
+		logger.Errorf("[internal-chainfs] service token: %v", err)
+		return http.StatusServiceUnavailable, fmt.Errorf("ChainFS service account unavailable: %w", err)
+	}
+
+	const maxUpload = 512 * 1024 * 1024 // 512 MB ceiling
+	data, err := io.ReadAll(io.LimitReader(r.Body, maxUpload+1))
+	if err != nil {
+		return http.StatusBadRequest, fmt.Errorf("failed to read upload body: %w", err)
+	}
+	if len(data) == 0 {
+		return http.StatusBadRequest, fmt.Errorf("empty upload body")
+	}
+	if int64(len(data)) > maxUpload {
+		return http.StatusRequestEntityTooLarge, fmt.Errorf("upload exceeds %d bytes", maxUpload)
+	}
+
+	// Prefix with the owner id so ownership is identifiable in the shared account.
+	uploadName := filename
+	if owner != "" {
+		uploadName = owner + "_" + filename
+	}
+
+	sum := sha256.Sum256(data)
+	sha := hex.EncodeToString(sum[:])
+
+	var fileGuid string
+	reader := bytes.NewReader(data)
+	if int64(len(data)) > segmentThreshold {
+		fileGuid, err = chainfs.UploadFileSegmented(chainfsConfig.ApiBaseUrl, token, uploadName, reader, int64(len(data)), "")
+	} else {
+		fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, token, uploadName, reader, "")
+	}
+	if err != nil {
+		logger.Errorf("[internal-chainfs] upload failed for %s: %v", uploadName, err)
+		return http.StatusBadGateway, fmt.Errorf("ChainFS upload failed: %w", err)
+	}
+	logger.Infof("[internal-chainfs] upload succeeded: %s -> FileGuid %s (%d bytes)", uploadName, fileGuid, len(data))
+
+	return renderJSON(w, r, map[string]interface{}{
+		"fileGuid":  fileGuid,
+		"name":      uploadName,
+		"sizeBytes": len(data),
+		"sha256":    sha,
+	})
 }
 
 // internalChainfsDownloadHandler handles GET /api/internal/chainfs/download?fileGuid=... — streams

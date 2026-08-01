@@ -167,6 +167,7 @@ func StartHttp(ctx context.Context, storage *bolt.BoltStore, shutdownComplete ch
 	api.HandleFunc("DELETE /internal/delete-user", wrapHandler(internalDeleteUserHandler))
 	api.HandleFunc("GET /internal/chainfs/files", wrapHandler(internalChainfsFilesHandler))
 	api.HandleFunc("GET /internal/chainfs/download", wrapHandler(internalChainfsDownloadHandler))
+	api.HandleFunc("POST /internal/chainfs/upload", wrapHandler(internalChainfsUploadHandler))
 
 	// Admin routes
 	api.HandleFunc("GET /admin/stats", withAdmin(adminStatsHandler))
