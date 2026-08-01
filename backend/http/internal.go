@@ -1,15 +1,177 @@
 package http
 
 import (
+	"context"
 	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
+	"github.com/gtsteffaniak/filebrowser/backend/chainfs"
 	"github.com/gtsteffaniak/filebrowser/backend/common/settings"
 	"github.com/gtsteffaniak/go-logger/logger"
 )
+
+// internalAuthorized reports whether the request carries the shared internal API key. Fails closed
+// if no secret is configured or it is too short; the comparison is constant-time.
+func internalAuthorized(r *http.Request) bool {
+	secret := os.Getenv("ACORN_DRIVE_API_SECRET")
+	provided := r.Header.Get("x-api-key")
+	return len(secret) >= 16 && subtle.ConstantTimeCompare([]byte(provided), []byte(secret)) == 1
+}
+
+// serviceChainfsToken mints a fresh ChainFS access token for the shared service account from its
+// stored refresh token, rotating the stored token if ChainFS returns a new one. This is the same
+// mechanism protectHandler uses for uploads.
+func serviceChainfsToken(ctx context.Context) (string, error) {
+	enc := AcornStateGetServiceRefreshToken()
+	if enc == "" {
+		return "", fmt.Errorf("the ChainFS service account has not completed its one-time sign-in")
+	}
+	rt, err := decryptToken(enc)
+	if err != nil {
+		return "", fmt.Errorf("decrypt service refresh token: %w", err)
+	}
+	at, newRt, err := refreshChainFsAccessToken(ctx, rt)
+	if err != nil {
+		return "", fmt.Errorf("refresh service token: %w", err)
+	}
+	if newRt != "" && newRt != rt {
+		if nenc, encErr := encryptToken(newRt); encErr == nil {
+			AcornStateSaveServiceRefreshToken(nenc)
+		}
+	}
+	return at, nil
+}
+
+// splitOwnerName splits a stored ChainFS name "<userID>_<original>" into its owner id and display
+// name. Files are uploaded as "<username>_<filename>"; the username (an Azure GUID) contains no
+// underscore, so the first underscore is the separator. Names without one are returned as-is.
+func splitOwnerName(raw string) (owner, name string) {
+	if i := strings.IndexByte(raw, '_'); i >= 0 {
+		return raw[:i], raw[i+1:]
+	}
+	return "", raw
+}
+
+func parseUintDefault(s string, def uint) uint {
+	if s == "" {
+		return def
+	}
+	n, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return def
+	}
+	return uint(n)
+}
+
+// internalChainfsFilesHandler handles GET /api/internal/chainfs/files — lists every file stored
+// under the ChainFS service account (read-only). Authenticated via x-api-key.
+func internalChainfsFilesHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (int, error) {
+	if !internalAuthorized(r) {
+		logger.Warningf("[internal-chainfs] unauthorized file-list attempt from %s", r.RemoteAddr)
+		return http.StatusUnauthorized, fmt.Errorf("unauthorized")
+	}
+
+	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
+	if chainfsConfig.ServiceUsername == "" {
+		return http.StatusServiceUnavailable, fmt.Errorf("no ChainFS service account configured")
+	}
+
+	token, err := serviceChainfsToken(r.Context())
+	if err != nil {
+		logger.Errorf("[internal-chainfs] service token: %v", err)
+		return http.StatusServiceUnavailable, fmt.Errorf("ChainFS service account unavailable: %w", err)
+	}
+
+	rangeStart := parseUintDefault(r.URL.Query().Get("start"), 0)
+	rangeSize := parseUintDefault(r.URL.Query().Get("size"), 1000)
+	if rangeSize == 0 || rangeSize > 2000 {
+		rangeSize = 2000
+	}
+
+	records, total, err := chainfs.ListFiles(chainfsConfig.ApiBaseUrl, token, rangeStart, rangeSize)
+	if err != nil {
+		logger.Errorf("[internal-chainfs] list failed: %v", err)
+		return http.StatusBadGateway, fmt.Errorf("could not list ChainFS files: %w", err)
+	}
+
+	type outFile struct {
+		FileGuid  string `json:"fileGuid"`
+		Owner     string `json:"owner"`
+		Name      string `json:"name"`
+		RawName   string `json:"rawName"`
+		SizeBytes int64  `json:"sizeBytes"`
+		CreatedAt string `json:"createdAt"`
+		Sha256    string `json:"sha256"`
+		Archived  bool   `json:"archived"`
+	}
+	files := make([]outFile, 0, len(records))
+	for _, rec := range records {
+		owner, name := splitOwnerName(rec.Name)
+		files = append(files, outFile{
+			FileGuid:  rec.FileGuid,
+			Owner:     owner,
+			Name:      name,
+			RawName:   rec.Name,
+			SizeBytes: rec.SizeBytes,
+			CreatedAt: rec.DateCreated,
+			Sha256:    rec.Sha256Hash,
+			Archived:  rec.Archived,
+		})
+	}
+
+	return renderJSON(w, r, map[string]interface{}{"files": files, "total": total})
+}
+
+// internalChainfsDownloadHandler handles GET /api/internal/chainfs/download?fileGuid=... — streams
+// one file's bytes from the ChainFS service account. Authenticated via x-api-key. Read-only.
+func internalChainfsDownloadHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (int, error) {
+	if !internalAuthorized(r) {
+		logger.Warningf("[internal-chainfs] unauthorized download attempt from %s", r.RemoteAddr)
+		return http.StatusUnauthorized, fmt.Errorf("unauthorized")
+	}
+
+	fileGuid := r.URL.Query().Get("fileGuid")
+	if fileGuid == "" {
+		return http.StatusBadRequest, fmt.Errorf("fileGuid is required")
+	}
+
+	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
+	if chainfsConfig.ServiceUsername == "" {
+		return http.StatusServiceUnavailable, fmt.Errorf("no ChainFS service account configured")
+	}
+
+	token, err := serviceChainfsToken(r.Context())
+	if err != nil {
+		logger.Errorf("[internal-chainfs] service token: %v", err)
+		return http.StatusServiceUnavailable, fmt.Errorf("ChainFS service account unavailable: %w", err)
+	}
+
+	data, filename, err := chainfs.DownloadFile(chainfsConfig.ApiBaseUrl, token, fileGuid)
+	if err != nil {
+		logger.Errorf("[internal-chainfs] download failed for %s: %v", fileGuid, err)
+		return http.StatusBadGateway, fmt.Errorf("could not download ChainFS file: %w", err)
+	}
+
+	// Strip the "<owner>_" prefix so the download keeps its original name.
+	if filename == "" {
+		filename = fileGuid
+	} else if _, name := splitOwnerName(filename); name != "" {
+		filename = name
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	if _, writeErr := w.Write(data); writeErr != nil {
+		logger.Debugf("[internal-chainfs] write error: %v", writeErr)
+	}
+	return 0, nil
+}
 
 // internalDeleteUserHandler handles DELETE /api/internal/delete-user?email=
 // Called by the landing page during account deletion. Authenticated via x-api-key header.

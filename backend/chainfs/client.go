@@ -233,6 +233,86 @@ func GetUserInfo(baseUrl, bearerToken string) (*UserInfo, error) {
 	return &info, nil
 }
 
+// FileRecord is a single file entry returned by ChainFS EnumerateFiles.
+type FileRecord struct {
+	FileGuid    string `json:"fileGuid"`
+	Name        string `json:"name"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	Sha256Hash  string `json:"sha256Hash"`
+	DateCreated string `json:"dateCreated"`
+	Archived    bool   `json:"archived"`
+	Directory   string `json:"directory"`
+}
+
+// fileEnumReport mirrors the ChainFS FileEnumReport schema from EnumerateFiles.
+type fileEnumReport struct {
+	MetaData struct {
+		Total uint `json:"total"`
+	} `json:"metaData"`
+	DetailsArray []FileRecord `json:"detailsArray"`
+}
+
+// ListFiles returns the files owned by the token's account (EnumerateFiles), newest first.
+// The service account owns every protected file, so its own token lists them all. Returns the
+// page of records plus the unpaged total.
+func ListFiles(baseUrl, bearerToken string, rangeStart, rangeSize uint) ([]FileRecord, uint, error) {
+	endpoint := fmt.Sprintf("%s/api/NansenFile/EnumerateFiles?SortBy=date&SortAsc=false&RangeLimited=true&RangeStart=%d&RangeSize=%d", baseUrl, rangeStart, rangeSize)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to create EnumerateFiles request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+bearerToken)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("ChainFS EnumerateFiles request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to read EnumerateFiles response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, 0, fmt.Errorf("ChainFS EnumerateFiles returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var report fileEnumReport
+	if err := json.Unmarshal(body, &report); err != nil {
+		return nil, 0, fmt.Errorf("failed to parse EnumerateFiles response: %w", err)
+	}
+	return report.DetailsArray, report.MetaData.Total, nil
+}
+
+// DownloadFile streams a file's bytes from ChainFS by FileGuid (FileDownloadBinary). Returns the
+// raw content and the stored filename (from the X-File-Name header). The service account owns every
+// file, so its token passes the FileDownloadBinary ownership check for all of them.
+func DownloadFile(baseUrl, bearerToken, fileGuid string) (data []byte, filename string, err error) {
+	endpoint := fmt.Sprintf("%s/api/NansenFile/FileDownloadBinary?FileGuid=%s", baseUrl, url.QueryEscape(fileGuid))
+	req, reqErr := http.NewRequest(http.MethodGet, endpoint, nil)
+	if reqErr != nil {
+		return nil, "", fmt.Errorf("failed to create FileDownloadBinary request: %w", reqErr)
+	}
+	req.Header.Set("Authorization", "Bearer "+bearerToken)
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, doErr := client.Do(req)
+	if doErr != nil {
+		return nil, "", fmt.Errorf("ChainFS FileDownloadBinary request failed: %w", doErr)
+	}
+	defer resp.Body.Close()
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return nil, "", fmt.Errorf("failed to read FileDownloadBinary response: %w", readErr)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("ChainFS FileDownloadBinary returned status %d: %s", resp.StatusCode, string(body))
+	}
+	return body, resp.Header.Get("X-File-Name"), nil
+}
+
 // AcornToolsAccess is the response from the acorn.tools internal access check.
 type AcornToolsAccess struct {
 	HasAccess  bool   `json:"hasAccess"`
