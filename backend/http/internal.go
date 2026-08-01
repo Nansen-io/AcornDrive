@@ -134,8 +134,9 @@ func internalChainfsFilesHandler(w http.ResponseWriter, r *http.Request, d *requ
 // internalChainfsUploadHandler handles POST /api/internal/chainfs/upload?owner=<id>&filename=<name>
 // — uploads the raw request body to ChainFS under the shared service account as "<owner>_<filename>".
 // For sibling joliro apps (Diary, ...) that can't hold the service token themselves. Authenticated
-// via x-api-key. Stored unencrypted so the bytes remain retrievable/verifiable (the returned sha256
-// is the real file hash). Returns {fileGuid, name, sizeBytes, sha256}.
+// via x-api-key. Bytes are AES-encrypted at rest by ChainFS using a per-owner password (same scheme
+// as protect), so nothing is stored in plaintext. The returned sha256 is of the ORIGINAL bytes (for
+// integrity verification). Returns {fileGuid, name, sizeBytes, sha256}.
 func internalChainfsUploadHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (int, error) {
 	if !internalAuthorized(r) {
 		logger.Warningf("[internal-chainfs] unauthorized upload attempt from %s", r.RemoteAddr)
@@ -180,12 +181,18 @@ func internalChainfsUploadHandler(w http.ResponseWriter, r *http.Request, d *req
 	sum := sha256.Sum256(data)
 	sha := hex.EncodeToString(sum[:])
 
+	// Encrypt at rest with a password derived from the server key + owner (mirrors protect's
+	// per-owner AES password), so ChainFS stores ciphertext, never plaintext.
+	pwMaterial := settings.Config.Auth.Key + ":" + owner
+	pwHash := sha256.Sum256([]byte(pwMaterial))
+	aesPassword := hex.EncodeToString(pwHash[:])
+
 	var fileGuid string
 	reader := bytes.NewReader(data)
 	if int64(len(data)) > segmentThreshold {
-		fileGuid, err = chainfs.UploadFileSegmented(chainfsConfig.ApiBaseUrl, token, uploadName, reader, int64(len(data)), "")
+		fileGuid, err = chainfs.UploadFileSegmented(chainfsConfig.ApiBaseUrl, token, uploadName, reader, int64(len(data)), aesPassword)
 	} else {
-		fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, token, uploadName, reader, "")
+		fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, token, uploadName, reader, aesPassword)
 	}
 	if err != nil {
 		logger.Errorf("[internal-chainfs] upload failed for %s: %v", uploadName, err)
