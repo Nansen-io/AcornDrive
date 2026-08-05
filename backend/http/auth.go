@@ -1,3 +1,4 @@
+
 package http
 
 import (
@@ -195,6 +196,48 @@ func sloHandler(w http.ResponseWriter, r *http.Request, _ *requestContext) (int,
 	return http.StatusNoContent, nil
 }
 
+// chainFsEndSessionUrl returns the Azure AD B2C end-session URL the browser must be sent to
+// for a sign-out to actually happen, or "" when none is configured.
+//
+// The identity session is a cookie the browser holds on the B2C domain. Nothing this server
+// does can reach it. The previous implementation fetched the logout endpoint server-side, in
+// a goroutine, discarding the response — a request that carried none of the person's cookies
+// and therefore ended nothing. Drive cleared its own cookie, the login screen reappeared, and
+// one click on Login signed the person straight back in without a password.
+//
+// A sign-out that only looks like one is more dangerous than one that visibly fails. Someone
+// closes a laptop on a shared, borrowed or monitored machine believing the account is shut,
+// and makes decisions about their safety on that basis. The screen agreed with them and the
+// session did not.
+func chainFsEndSessionUrl(r *http.Request, host string) string {
+	cfg := config.Auth.Methods.ChainFsAuth
+	endpoint := cfg.LogoutUrl
+	if endpoint == "" {
+		derived, err := chainfs.GetLogoutUrl(cfg.ApiBaseUrl)
+		if err != nil || derived == "" {
+			return ""
+		}
+		endpoint = derived
+	}
+
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		// Send the browser to the configured value as-is. It may land on a Microsoft page
+		// instead of Drive's login screen, which is untidy, but the person ends up signed
+		// out. This has to fail closed.
+		return endpoint
+	}
+
+	// Return people to the login page of the hostname they were actually using, derived from
+	// the request rather than pinned to one name — the same reasoning that leaves
+	// server.externalUrl empty. drive.joliro.org and drive.acorn.tools each return to
+	// themselves, so nobody is bounced onto a hostname they did not choose mid-rebrand.
+	q := parsed.Query()
+	q.Set("post_logout_redirect_uri", fmt.Sprintf("%s://%s%slogin", getScheme(r), host, config.Server.BaseURL))
+	parsed.RawQuery = q.Encode()
+	return parsed.String()
+}
+
 func logoutHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (int, error) {
 	defer auth.RevokeAPIKey(d.token)
 
@@ -222,36 +265,24 @@ func logoutHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (i
 	http.SetCookie(w, cookie)
 
 	logoutUrl := fmt.Sprintf("%vlogin", config.Server.BaseURL) // Default fallback
-	if d.user != nil && d.user.LoginMethod == users.LoginMethodProxy {
-		proxyRedirectUrl := config.Auth.Methods.ProxyAuth.LogoutRedirectUrl
-		if proxyRedirectUrl != "" {
-			logoutUrl = proxyRedirectUrl
+	switch {
+	case d.user != nil && d.user.LoginMethod == users.LoginMethodProxy:
+		if u := config.Auth.Methods.ProxyAuth.LogoutRedirectUrl; u != "" {
+			logoutUrl = u
 		}
-	} else if d.user != nil && d.user.LoginMethod == users.LoginMethodOidc {
-		oidcRedirectUrl := config.Auth.Methods.OidcAuth.LogoutRedirectUrl
-		if oidcRedirectUrl != "" {
-			logoutUrl = oidcRedirectUrl
+	case d.user != nil && d.user.LoginMethod == users.LoginMethodOidc:
+		if u := config.Auth.Methods.OidcAuth.LogoutRedirectUrl; u != "" {
+			logoutUrl = u
 		}
-	} else if d.user != nil && d.user.LoginMethod == users.LoginMethodChainFs {
-		chainfsConfig := config.Auth.Methods.ChainFsAuth
-		// Prefer the explicitly configured B2C logout endpoint. Deriving it from apiBaseUrl is a
-		// fallback only — it is what tied the identity provider to the ChainFS storage endpoint.
-		if chainfsConfig.LogoutUrl != "" {
-			go func() {
-				http.Get(chainfsConfig.LogoutUrl) //nolint:errcheck
-			}()
-		} else {
-			go func() {
-				chainfsLogoutUrl, err := chainfs.GetLogoutUrl(chainfsConfig.ApiBaseUrl)
-				if err == nil && chainfsLogoutUrl != "" {
-					http.Get(chainfsLogoutUrl) //nolint:errcheck
-				}
-			}()
+	case config.Auth.Methods.ChainFsAuth.Enabled:
+		// Keyed on the method being enabled rather than on d.user's login method, because
+		// this endpoint is reachable withOrWithoutUser: someone whose Drive cookie has
+		// already expired arrives here with d.user == nil. That person is among the most
+		// likely to be clicking Logout, and under the previous condition they got no
+		// identity-provider sign-out at all.
+		if u := chainFsEndSessionUrl(r, host); u != "" {
+			logoutUrl = u
 		}
-	}
-	if logoutUrl == "" {
-		logger.Debug("no logout url found, using default")
-		logoutUrl = fmt.Sprintf("%vlogin", config.Server.BaseURL)
 	}
 	response := map[string]string{
 		"logoutUrl": logoutUrl,
