@@ -1,6 +1,7 @@
 package http
 
 import (
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -68,21 +69,68 @@ func (s *rateLimitStore) cleanup() {
 	}
 }
 
-// isPrivateIP returns true for loopback and RFC-1918/RFC-4193 addresses used
-// by Azure load balancers and reverse proxies. Only requests from these addresses
-// are permitted to set X-Forwarded-For / X-Real-Ip headers.
-func isPrivateIP(ip string) bool {
-	privateRanges := []string{
-		"127.", "::1",        // loopback
-		"10.",                // RFC-1918 class A
-		"192.168.",           // RFC-1918 class C
-		"172.16.", "172.17.", "172.18.", "172.19.",
-		"172.20.", "172.21.", "172.22.", "172.23.",
-		"172.24.", "172.25.", "172.26.", "172.27.",
-		"172.28.", "172.29.", "172.30.", "172.31.", // RFC-1918 class B
+// trustedProxyNets holds the networks that net.IP's own helpers do not cover.
+//
+// RFC-6598 (100.64.0.0/10, "carrier-grade NAT") is the one that matters here.
+// Azure Container Apps — like most Kubernetes-derived platforms — addresses the
+// pod network from that range, so the ingress reaches this container from a
+// 100.x.x.x peer. It is not a public address and not a client we are talking to;
+// it is our own front door.
+var trustedProxyNets = func() []*net.IPNet {
+	var nets []*net.IPNet
+	for _, s := range []string{
+		"100.64.0.0/10", // RFC-6598 CGNAT — Azure Container Apps / Kubernetes pod network
+	} {
+		if _, n, err := net.ParseCIDR(s); err == nil {
+			nets = append(nets, n)
+		}
 	}
-	for _, prefix := range privateRanges {
-		if strings.HasPrefix(ip, prefix) {
+	return nets
+}()
+
+// isPrivateIP reports whether the immediate peer is an address we treat as a
+// trusted proxy — loopback, RFC-1918, RFC-4193 unique-local, link-local, or
+// RFC-6598 carrier-grade NAT. Only requests from these addresses are permitted
+// to set X-Forwarded-For / X-Real-Ip / X-Forwarded-Proto.
+//
+// This used to be a list of string prefixes and did not include 100.64.0.0/10,
+// which is the range Container Apps actually uses. The consequences were all
+// silent, and all in production:
+//
+//   - getScheme() never trusted X-Forwarded-Proto. TLS terminates at the
+//     ingress, so r.TLS is nil and it reported "http". Drive built its B2C
+//     redirect_uri as http://<host>/api/auth/chainfs/callback and Azure AD B2C
+//     rejected every sign-in with AADB2C90006, since only the https form is
+//     registered. B2C was right; the scheme was wrong.
+//   - Every cookie whose Secure flag comes from getScheme() was written without
+//     it — including chainfs_state_nonce and chainfs_pkce_verifier, the two that
+//     hold a sign-in together.
+//   - Strict-Transport-Security was gated the same way and never sent.
+//   - realIP() fell through to the proxy's own address, so login rate limiting
+//     was a single bucket shared by everyone using Drive instead of one bucket
+//     per client. Five attempts between all of them.
+//
+// Parsing the address rather than matching text also handles IPv4-mapped IPv6
+// (::ffff:10.0.0.1), which no "10." prefix could ever match.
+//
+// Broadening the trusted set does mean a client able to reach the container
+// directly from a 100.x address could set these headers. Container Apps admits
+// no such path — the container is reachable only through the ingress — so the
+// exposure is the platform's isolation, not this list.
+func isPrivateIP(ip string) bool {
+	// Callers strip the port with LastIndex(":"), which leaves the brackets on an
+	// IPv6 literal. Tolerate that here rather than requiring every caller to change.
+	ip = strings.Trim(ip, "[]")
+
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	if parsed.IsLoopback() || parsed.IsLinkLocalUnicast() || parsed.IsPrivate() {
+		return true
+	}
+	for _, n := range trustedProxyNets {
+		if n.Contains(parsed) {
 			return true
 		}
 	}
@@ -94,7 +142,9 @@ func isPrivateIP(ip string) bool {
 func realIP(r *http.Request) string {
 	// Strip port from RemoteAddr to get the peer IP
 	remoteIP := r.RemoteAddr
-	if idx := strings.LastIndex(remoteIP, ":"); idx != -1 {
+	if host, _, err := net.SplitHostPort(remoteIP); err == nil {
+		remoteIP = host
+	} else if idx := strings.LastIndex(remoteIP, ":"); idx != -1 {
 		remoteIP = remoteIP[:idx]
 	}
 
