@@ -1,7 +1,20 @@
 server:
   port: 8080
   baseURL: "/"
-  externalUrl: "https://drive.acorn.tools"
+  # Deliberately empty. Drive builds its B2C redirect_uri from this value, so a fixed hostname
+  # here means a sign-in begun on any other bound hostname is returned to the wrong one and
+  # refused with "missing state nonce cookie — possible CSRF attack". That refusal is correct
+  # behaviour; the wrong hostname is the bug. Previously pinned to https://drive.acorn.tools,
+  # which is why drive.joliro.org could never complete a login.
+  #
+  # Empty makes the callback follow the hostname the person actually arrived on, so
+  # drive.joliro.org and drive.acorn.tools both work. That matters during the rebrand: nobody
+  # holding an older link is locked out of their own files partway through a change made for
+  # cosmetic reasons. Both callback addresses are already registered on the nansenprod B2C
+  # app f415826b.
+  #
+  # Share links fall back to X-Forwarded-Host, which Container Apps sets, so they stay correct.
+  externalUrl: ""
   sources:
     - path: "/srv"
       name: "joliroDrive"
@@ -9,7 +22,6 @@ server:
         defaultEnabled: true
         defaultUserScope: "/users"
         createUserDir: true
-
 auth:
   key: "__AUTH_KEY__" # MUST be exactly 32 bytes for AES-256
   tokenExpirationHours: 8
@@ -23,7 +35,6 @@ auth:
       createUser: true
       adminClaim: "roles"
       adminClaimValue: "admin"
-
       # --- PRODUCTION (nansenprod B2C + nansenprod ChainFS) -----------------------------------
       # Everything runs in PROD. User login uses the hub's B2C user-flow (B2C_1_signup_signin) so
       # the hub SSO carries over seamlessly. ChainFS uploads use the shared SERVICE ACCOUNT token
@@ -31,21 +42,17 @@ auth:
       loginUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/authorize?client_id=f415826b-2d06-44ef-aba1-4ec5ef1036f9&scope=openid+profile+https%3A%2F%2Fnansenprod.onmicrosoft.com%2Ftasks-api%2Faccess_as_user"
       tokenUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/token"
       logoutUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/logout"
-
       # issuerUrl (the `iss` B2C mints, tenant-GUID form) + discoveryUrl (metadata, user-flow path).
       # Both verified live against the prod tenant.
       issuerUrl: "https://nansenprod.b2clogin.com/61d0f6a1-da97-435e-a1af-1ca7c26998b6/v2.0/"
       discoveryUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/v2.0"
-
       # ChainFS storage — PRODUCTION.
       apiBaseUrl: "https://nansenprod.azurewebsites.net"
-
       # serviceUsername: the dedicated ChainFS service account's B2C sub. Set it (and the client
       # secret) on the Container App via FILEBROWSER_CHAINFS_SERVICE_USERNAME. When set, every
       # protected file is uploaded under this one account (named "<userID>_<filename>") using its
       # refresh token, captured on its one-time login.
       serviceUsername: ""
-
       # Every value above can be overridden per-deployment via the FILEBROWSER_CHAINFS_* env vars.
     password:
       enabled: false
@@ -54,7 +61,6 @@ auth:
     proxy:
       enabled: false
     noauth: false
-
 userDefaults:
   defaultQuotaBytes: 4294967296  # 4 GB per user
   permissions:
