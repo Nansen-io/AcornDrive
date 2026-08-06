@@ -62,3 +62,6 @@ backend/config.prod.yaml
 backend/preview/heic/
 backend/preview/thumbnails/
 nul
+
+# Patch files are handed over for applying, never committed
+*.patch

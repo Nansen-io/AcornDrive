@@ -5,6 +5,7 @@ import { state } from "@/store"; // Adjust the path as per your setup
 import i18n from "@/i18n";
 import VueLazyload from "vue-lazyload";
 import VuePlyr from "@skjnldsv/vue-plyr"; // Custom media player
+import { listenForSingleLogout } from "@/utils/slo";
 
 import "./css/styles.css";
 
@@ -36,5 +37,9 @@ app.mixin({
     this.$el.__vue__ = this;
   },
 });
+
+// Listen for the hub's sign-out before mounting, so a tab that is already open is covered
+// from the first moment rather than after the app finishes booting. See utils/slo.ts.
+listenForSingleLogout();
 
 router.isReady().then(() => app.mount("#app"));

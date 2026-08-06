@@ -3,6 +3,7 @@ package http
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -144,6 +145,19 @@ func loginHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (in
 	return printToken(w, r, d.user) // Pass the data object
 }
 
+// sloFrameAncestors is the list of origins allowed to frame /api/auth/slo. The Joliro hub
+// is the only caller today. The acorn.tools entries are kept through the rebrand because a
+// person may still be on an older link, and dropping them would silently stop signing that
+// person out -- the failure mode this endpoint exists to prevent. Kept as a literal rather
+// than an environment variable so it is visible in review: a blank or stale variable here
+// would produce a sign-out that looks complete while the tab stays open.
+var sloFrameAncestors = []string{
+	"https://www.joliro.org",
+	"https://joliro.org",
+	"https://www.acorn.tools",
+	"https://acorn.tools",
+}
+
 // logoutHandler handles user logout
 // @Summary User Logout
 // @Description Returns a logout URL for the frontend to redirect to.
@@ -152,11 +166,31 @@ func loginHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (in
 // @Param auth query string false "JWT token"
 // @Success 200 {object} map[string]string "{"logoutUrl": "http://..."}"
 // @Router /api/auth/logout [post]
-// sloHandler clears the auth cookie for cross-app single-logout. acorn.tools loads
-// this endpoint in a hidden iframe when the user logs out of the hub. No auth is
-// required (the iframe won't carry a valid token); it simply deletes the cookie and
-// returns 204. Two login paths set the cookie with different Path/Domain, so we emit
-// a deletion for each (Name+Path+Domain identify a cookie for deletion).
+// sloHandler ends this app's session for cross-app single-logout. The hub loads this
+// endpoint in a hidden iframe when the person logs out, and no auth is required: the
+// iframe will not carry a valid token, and the endpoint can only ever end the caller's
+// own session, never start one. Two login paths set the cookie with different
+// Path/Domain, so we emit a deletion for each (Name+Path+Domain identify a cookie for
+// deletion).
+//
+// It also returns a small HTML page rather than 204. The page's only job is to announce
+// on a same-origin BroadcastChannel that this app's session has ended. Drive tabs the
+// person already has open are listening (frontend/src/utils/slo.ts) and close themselves
+// when they hear it. This is how an open tab gets closed at all: the hub opens tiles with
+// window.open(..., 'noopener'), which returns null, so the hub holds no reference to the
+// tab and cannot close it directly. The iframe, however, is on this app's own origin --
+// which is exactly what BroadcastChannel needs.
+//
+// Deleting the cookie is the security boundary. Closing the tab is the visible layer and
+// must never be relied on: if the broadcast never arrives, or the browser refuses
+// window.close(), the session is still over.
+//
+// Two response headers are deliberately relaxed for this one path. securityHeadersMiddleware
+// sets X-Frame-Options: DENY and frame-ancestors 'none' on every response, which blocks
+// framing even same-origin, so the hub's hidden iframe would be refused by the browser
+// before any of this ran. We drop X-Frame-Options and set a frame-ancestors list naming
+// the hub. Nothing is weakened by doing so: an attacker who frames this page can only
+// sign their victim out.
 func sloHandler(w http.ResponseWriter, r *http.Request, _ *requestContext) (int, error) {
 	host := r.Header.Get("X-Forwarded-Host")
 	if host == "" {
@@ -193,7 +227,65 @@ func sloHandler(w http.ResponseWriter, r *http.Request, _ *requestContext) (int,
 	})
 
 	w.Header().Set("Cache-Control", "no-store")
-	return http.StatusNoContent, nil
+
+	// Baseline CSP has script-src 'self', so the announcement script needs a per-response
+	// nonce. If the random read fails we fall back to the old 204: the cookies above are
+	// already set, so the sign-out still happens; only the tab-closing courtesy is lost.
+	nonceBytes := make([]byte, 16)
+	if _, randErr := rand.Read(nonceBytes); randErr != nil {
+		logger.Errorf("slo: could not generate a CSP nonce, returning 204 without the close signal: %v", randErr)
+		return http.StatusNoContent, nil
+	}
+	nonce := base64.RawURLEncoding.EncodeToString(nonceBytes)
+
+	w.Header().Del("X-Frame-Options")
+	w.Header().Set("Content-Security-Policy",
+		"default-src 'none'; script-src 'nonce-"+nonce+"'; base-uri 'none'; form-action 'none'; "+
+			"frame-ancestors "+strings.Join(sloFrameAncestors, " "))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	// This page has two roles. Framed by the hub, it is invisible and only broadcasts. Loaded
+	// as the tab itself -- which is what B2C does when it sends the browser back here after
+	// Drive's own Logout -- it is the last thing the person sees, so it also closes the tab
+	// and, if the browser refuses, says plainly what happened. Either way it is not a login
+	// form and offers no way back in without a password.
+	page := `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signed out</title>
+</head>
+<body style="margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.75rem;padding:2rem;text-align:center;background:#ffffff;color:#1f2933;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<h1 style="margin:0;font-size:1.25rem;font-weight:600">You have been signed out</h1>
+<p style="margin:0;font-size:1rem;max-width:28rem;line-height:1.5">Joliro Drive is closed in this browser. You can close this tab.</p>
+<script nonce="` + nonce + `">
+(function () {
+  try {
+    var channel = new BroadcastChannel("joliro-slo");
+    channel.postMessage({ type: "signed-out", app: "drive" });
+    setTimeout(function () { channel.close(); }, 0);
+  } catch (e) {
+    // No BroadcastChannel, or it is blocked. The cookie is gone regardless.
+  }
+  // The broadcast above is never delivered to its own sender, so when this page IS the tab
+  // it has to close itself. window.close() is only permitted on a tab a script opened, which
+  // is how the hub opens tiles; a tab the person opened themselves refuses it silently and
+  // they see the message above instead. Framed, this is a no-op.
+  if (window.top === window.self) {
+    try { window.close(); } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>
+`
+	if _, writeErr := w.Write([]byte(page)); writeErr != nil {
+		logger.Debugf("slo: could not write the close-signal page: %v", writeErr)
+	}
+	// 0 tells wrapHandler not to call WriteHeader again -- we have written the response.
+	return 0, nil
 }
 
 // chainFsEndSessionUrl returns the Azure AD B2C end-session URL the browser must be sent to
