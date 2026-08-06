@@ -77,10 +77,39 @@ export async function logout() {
       if (!logoutUrl) {
         logoutUrl = globalVars.baseURL+"login";
       }
-      // Add a small delay to ensure cookie deletion completes before redirect
+      // The Drive session is already over at this point: the server deleted the cookie above
+      // and the fail-safe deletion has run. What is left is where to leave the person, and
+      // that depends on how they got here.
+      //
+      // If the Joliro hub opened this tab, closing it puts them back on the hub, still signed
+      // in, one click from opening Drive again. Leaving them on a login screen in a second tab
+      // while a signed-in hub sits in the first is the thing that reads as "you are locked
+      // out" when they are not.
+      //
+      // If they opened Drive themselves -- typed the address, or came from a bookmark -- there
+      // is no hub tab to go back to, and closing would leave them with nothing. They get
+      // today's behaviour: the B2C sign-out below, ending with the login screen.
+      //
+      // We do not need to be told which case this is. window.close() is only permitted on a
+      // tab a script opened, so the browser already knows and already draws the line in the
+      // right place. Tested in Chromium, headless and headed, including across the full B2C
+      // round trip (hub -> Drive -> B2C -> back to Drive): a hub-opened tab still closes, and
+      // a person-opened tab refuses silently and falls through to the redirect below. A
+      // browser that refuses where Chromium allows costs nothing -- it just gets today's
+      // behaviour.
+      //
+      // The refusal is silent, so the fallback has to be the timer rather than a catch.
+      try {
+        window.close();
+      } catch (e) {
+        // Some browsers throw rather than warn. Either way the redirect below covers it.
+      }
+      // Long enough for a permitted close to take the tab down before this fires, short enough
+      // that a refused close is not a visible pause. Also still covers the original reason for
+      // the delay: letting the cookie deletion settle before we navigate.
       setTimeout(() => {
         window.location.href = logoutUrl;
-      }, 100);
+      }, 250);
       return; // Stop execution
     } else {
       // Handle potential errors from the API, e.g., res.status 401, 500
