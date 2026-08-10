@@ -57,3 +57,21 @@ describe("nextRenderSeq", () => {
     expect(seq === ctx.renderSeq).toBe(true);
   });
 });
+
+describe("the pinned pdfjs version", () => {
+  // pdfjs 6.2.108 was installed first and could never have worked. It calls
+  // Map.prototype.getOrInsertComputed, a proposal-stage method absent from shipping
+  // browsers -- Chromium 141 does not have it -- so every render threw an internal error
+  // regardless of the arguments passed. Proven with the real library in real Chromium, not
+  // inferred.
+  //
+  // The 4.x line renders correctly, and takes canvasContext. The 5+ line replaced that with
+  // a canvas parameter, so version and call signature have to move together. A careless
+  // major bump breaks rendering silently, which is exactly how this feature burned five
+  // deploys, so the pin is asserted here rather than trusted to a comment.
+  it("stays on the 4.x line, which shipping browsers can actually run", async () => {
+    const pkg = await import("../../../package.json");
+    const range = (pkg.default || pkg).dependencies["pdfjs-dist"];
+    expect(range).toMatch(/^\^?4\./);
+  });
+});
