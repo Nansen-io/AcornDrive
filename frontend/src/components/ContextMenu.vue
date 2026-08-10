@@ -163,7 +163,6 @@
       :class="{ 'dark-mode': isDarkMode }"
     >
       <action icon="info" :label="$t('general.info')" show="info" />
-      <action v-if="showGoToRaw" icon="open_in_new" :label="$t('general.openFile')" @action="goToRaw()" />
       <action v-if="shouldShowParentFolder()" icon="folder" :label="$t('buttons.openParentFolder')" @action="openParentFolder" />
       <action v-if="hasDownload" icon="file_download" :label="$t('general.download')" @action="startDownload" />
       <action v-if="showEdit" icon="edit" :label="$t('general.edit')" @action="edit()" />

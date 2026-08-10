@@ -27,12 +27,7 @@
                 :class="{'plyr-background': previewType == 'audio' && !useDefaultMediaPlayer}" />
 
             <div v-else-if="previewType == 'pdf'" class="pdf-wrapper">
-                <iframe class="pdf" :src="raw"></iframe>
-                <a v-if="isMobileSafari" :href="raw" target="_blank" class="button button--flat floating-btn">
-                    <div>
-                        <i class="material-icons">open_in_new</i>{{ $t("general.openFile") }}
-                    </div>
-                </a>
+                <PdfViewer :raw="raw" />
             </div>
 
             <div v-else class="info">
@@ -44,11 +39,6 @@
                     <a target="_blank" :href="downloadUrl" class="button button--flat">
                         <div>
                             <i class="material-icons">file_download</i>{{ $t("general.download") }}
-                        </div>
-                    </a>
-                    <a target="_blank" :href="raw" class="button button--flat" v-if="req.type != 'directory'">
-                        <div>
-                            <i class="material-icons">open_in_new</i>{{ $t("general.openFile") }}
                         </div>
                     </a>
                 </div>
@@ -70,10 +60,12 @@ import { state, getters, mutations } from "@/store";
 import { getFileExtension } from "@/utils/files";
 import { convertToVTT } from "@/utils/subtitles";
 import { globalVars } from "@/utils/constants";
+import PdfViewer from "@/views/files/PdfViewer.vue";
 
 export default {
     name: "preview",
     components: {
+        PdfViewer,
         ExtendedImage,
         plyrViewer,
     },
