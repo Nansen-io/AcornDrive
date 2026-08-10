@@ -128,11 +128,20 @@ export default {
 <style scoped>
 .pdf-viewer {
   width: 100%;
-  height: 100%;
+  /* Height deliberately does not depend on an ancestor.
+     The wrapper this sits in is height: 100%, which only resolves if every ancestor above
+     it also has a height. That chain does not hold here, so the container collapsed to zero
+     and the pages rendered into something invisible -- no error, no message, just a blank
+     page, which is the failure mode this whole component exists to remove.
+     A viewport-relative minimum means the viewer always has somewhere to draw, whatever the
+     ancestors do. */
+  min-height: calc(100vh - 8em);
+  max-height: 100%;
   overflow: auto;
 }
 
 .pdf-pages {
+  min-height: inherit;
   display: flex;
   flex-direction: column;
   align-items: center;
