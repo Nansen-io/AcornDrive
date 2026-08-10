@@ -195,8 +195,18 @@ func handleWithStaticData(w http.ResponseWriter, r *http.Request, d *requestCont
 func setContentType(w http.ResponseWriter, path string) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".js":
+	// .mjs matters as much as .js. Go's MIME table has no entry for it, so without this
+	// case the file falls through to content sniffing and is served as text/plain, and
+	// browsers refuse to execute a module script with a non-JavaScript MIME type. That is
+	// how the bundled PDF worker failed: it loaded, was rejected on MIME grounds, pdfjs
+	// fell back to a "fake worker", and the only visible result was a PDF that would not
+	// display. Nothing in the server logs said anything at all.
+	case ".js", ".mjs":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	case ".wasm":
+		// Same failure mode: WebAssembly.instantiateStreaming rejects anything that is not
+		// application/wasm. pdfjs uses wasm for some image decoding.
+		w.Header().Set("Content-Type", "application/wasm")
 	case ".css":
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	case ".svg":
