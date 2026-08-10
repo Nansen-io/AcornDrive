@@ -75,3 +75,17 @@ describe("the pinned pdfjs version", () => {
     expect(range).toMatch(/^\^?4\./);
   });
 });
+
+describe("component lifecycle", () => {
+  // There was a created() hook here that initialised renderSeq to 0. Vue sets up immediate
+  // watchers before created() runs, so load() had already incremented the counter to 1 by
+  // the time the hook reset it, and the render guard then compared 1 against 0 and stopped
+  // on the first page. No error, no message, a blank viewer -- and it survived two attempts
+  // at fixing the counter itself, because the counter was never the problem.
+  //
+  // Both fields are initialised at their point of use now. This asserts the hook has not
+  // come back, since anything it initialises races the watcher that has already run.
+  it("has no created hook to race the immediate watcher", () => {
+    expect(PdfViewer.created).toBeUndefined();
+  });
+});

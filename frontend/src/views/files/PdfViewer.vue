@@ -41,18 +41,19 @@ export default {
       error: "",
     };
   },
-  created() {
-    // Deliberately not in data(). Vue makes everything returned from data() reactive, so
-    // `this.doc` would be a Proxy wrapping the pdfjs document. The supersede check in
-    // renderAll compares the stored document against the one it is rendering, and a proxy
-    // is never identical to the object it wraps -- so that check fired on the first page of
-    // every render and produced a viewer with no pages, no error and nothing on screen.
-    //
-    // Deep-proxying a pdfjs document is also pointless work on a large file. Nothing in the
-    // template reads it, so it has no business being reactive.
-    this.doc = null;
-    this.renderSeq = 0;
-  },
+  // No created() hook, deliberately.
+  //
+  // There was one, initialising this.doc and this.renderSeq. It was actively harmful: Vue
+  // sets up immediate watchers *before* created() runs, so load() had already started and
+  // incremented the counter to 1 when created() reset it to 0. The render guard then
+  // compared 1 against 0, bailed on the first page, and drew nothing -- with no error, no
+  // message, and a component that looked like it had simply done nothing.
+  //
+  // Both fields are initialised where they are used instead, so no hook ordering can
+  // interfere with them. The pdfjs document is kept off data() as well: Vue proxies
+  // everything data() returns, and an identity check against a proxy never matches the
+  // object it wraps. Nothing in the template reads the document, so it has no business
+  // being reactive.
   watch: {
     raw: {
       handler() {
