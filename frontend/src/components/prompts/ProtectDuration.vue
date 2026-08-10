@@ -6,17 +6,18 @@
   <div class="card-content">
     <p>{{ $t("prompts.protectDurationMessage") }}</p>
     <div class="protect-input-row">
-      <input
-        aria-label="Protection duration in hours"
-        class="input protect-hours-input"
-        type="number"
-        min="1"
-        max="87600"
+      <label class="protect-label" for="protect-period">{{ $t("prompts.protectPeriodLabel") }}</label>
+      <select
+        id="protect-period"
+        class="input protect-period-select"
         v-model.number="hours"
         v-focus
         @keyup.enter="submit"
-      />
-      <span class="protect-unit">{{ $t("prompts.protectHours") }}</span><!-- eslint-disable-line @intlify/vue-i18n/no-raw-text -->
+      >
+        <option v-for="period in periods" :key="period.key" :value="period.hours">
+          {{ $t("prompts." + period.i18n) }}
+        </option>
+      </select>
     </div>
   </div>
 
@@ -43,6 +44,7 @@
 import { mutations } from "@/store";
 import { chainfsApi } from "@/api";
 import { notify } from "@/notify";
+import { PROTECT_PERIODS, DEFAULT_PROTECT_HOURS } from "@/utils/protection.js";
 
 export default {
   name: "ProtectDuration",
@@ -58,12 +60,28 @@ export default {
   },
   data() {
     return {
-      hours: 24,
+      // Still hours on the wire -- the server computes now + hours * time.Hour and
+      // nothing about existing protections changes. What moved is that a person no
+      // longer has to think in hours, or type 43800 and get it right.
+      hours: DEFAULT_PROTECT_HOURS,
     };
   },
   computed: {
+    periods() {
+      return PROTECT_PERIODS.map((p) => ({
+        key: p.key,
+        hours: p.hours,
+        i18n:
+          "protectPeriod" + p.key.charAt(0).toUpperCase() + p.key.slice(1),
+      }));
+    },
     validHours() {
-      return Number.isInteger(this.hours) && this.hours >= 1;
+      // A period picked from the list is always valid; this guards against the value
+      // being cleared or tampered with, so we never send a nonsense expiry.
+      return (
+        Number.isInteger(this.hours) &&
+        PROTECT_PERIODS.some((p) => p.hours === this.hours)
+      );
     },
   },
   methods: {
@@ -104,8 +122,13 @@ export default {
   margin-top: 0.75em;
 }
 
-.protect-hours-input {
-  width: 7em;
+.protect-period-select {
+  min-width: 10em;
+}
+
+.protect-label {
+  color: var(--textSecondary, #888);
+  font-size: 0.9em;
 }
 
 .protect-unit {

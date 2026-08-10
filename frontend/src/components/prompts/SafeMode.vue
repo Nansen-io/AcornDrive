@@ -1,6 +1,6 @@
 <template>
   <div class="card-title">
-    <h2>{{ isRemoving ? $t("prompts.safeModeRemove") : $t("prompts.safeModeAdd") }}</h2>
+    <h2>{{ isRemoving ? $t("prompts.safeModeRemove") : (hasPIN ? $t("prompts.safeModeAdd") : $t("prompts.safeModeAddFirstTime")) }}</h2>
   </div>
 
   <div class="card-content">
@@ -10,10 +10,14 @@
       <input
         ref="pinInput"
         class="input safemode-pin-input"
-        type="password"
+        type="text"
         inputmode="numeric"
         maxlength="4"
         pattern="[0-9]{4}"
+        data-1p-ignore
+        data-lpignore="true"
+        data-bwignore
+        data-form-type="other"
         :placeholder="$t('prompts.safeModePINPlaceholder')"
         v-model="pin"
         v-focus
@@ -26,10 +30,14 @@
       <input
         ref="confirmInput"
         class="input safemode-pin-input"
-        type="password"
+        type="text"
         inputmode="numeric"
         maxlength="4"
         pattern="[0-9]{4}"
+        data-1p-ignore
+        data-lpignore="true"
+        data-bwignore
+        data-form-type="other"
         :placeholder="$t('prompts.safeModePINConfirmPlaceholder')"
         v-model="pinConfirm"
         @keyup.enter="submit"
@@ -163,10 +171,35 @@ export default {
 }
 
 .safemode-pin-input {
-  width: 8em;
+  /* Wide enough for the longest placeholder. At 0.3em letter-spacing and 1.2em text,
+     "Confirm PIN" overflowed 8em and rendered as "Confirm", which read as the wrong
+     label rather than as a clipped one. */
+  width: 11em;
   letter-spacing: 0.3em;
   text-align: center;
   font-size: 1.2em;
+
+  /* Masked, but not a password field.
+     These inputs were type="password", which is what a 4-digit PIN looks like to a
+     human and what a *credential* looks like to a password manager. Managers offer to
+     save anything in a password field, and a SAFEMode PIN accepted into a synced vault
+     is the one secret in this product that must not live anywhere else -- it is what
+     stands between someone glancing at this screen and the files that are hidden.
+     autocomplete="off" is routinely ignored by managers, so the fix is not to present
+     the field as a password at all: mask it in CSS, and mark it for the managers that
+     honour opt-out attributes.
+     Supported in Chrome, Edge, Safari and Firefox 118+. On anything older the digits
+     are visible as typed -- worse for shoulder-surfing, better than the PIN being
+     stored -- and the 4-digit value is cleared from memory on submit either way. */
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
+/* Letter-spacing is for four digits, not for words. Without this the placeholder
+   overflows and gets cut off mid-word. */
+.safemode-pin-input::placeholder {
+  letter-spacing: normal;
+  font-size: 0.85em;
 }
 
 .safemode-error {

@@ -119,6 +119,7 @@ import { formatTimestamp } from "@/utils/moment";
 import { filesApi } from "@/api";
 import { state, getters, mutations } from "@/store";
 import { notify } from "@/notify";
+import { formatProtectionRemaining } from "@/utils/protection.js";
 
 export default {
   name: "info",
@@ -266,17 +267,11 @@ export default {
         : getters.getFirstSelected()?.protectedUntil;
       if (!protectedUntil) return null;
 
-      const msLeft = new Date(protectedUntil).getTime() - Date.now();
-      if (msLeft <= 0) return "Expired";
-
-      const totalMinutes = Math.floor(msLeft / 60000);
-      const days = Math.floor(totalMinutes / 1440);
-      const hours = Math.floor((totalMinutes % 1440) / 60);
-      const minutes = totalMinutes % 60;
-
-      if (days > 0) return `${days}d ${hours}h remaining`;
-      if (hours > 0) return `${hours}h ${minutes}m remaining`;
-      return `${minutes}m remaining`;
+      // Shared with the protect dialog, so the period offered and the period reported
+      // can never describe the same protection differently.
+      return formatProtectionRemaining(
+        new Date(protectedUntil).getTime() - Date.now(),
+      );
     },
     additionalInfo() {
       const info = [];
