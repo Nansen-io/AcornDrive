@@ -172,7 +172,7 @@ export default {
       return url.base64Encode(encodeURIComponent(this.name));
     },
     quickNav() {
-      return state.user.singleClick && !state.multiple;
+      return getters.opensOnSingleClick() && !state.multiple;
     },
     user() {
       return state.user;
@@ -182,7 +182,7 @@ export default {
     },
     isClicked() {
       // @ts-ignore
-      if (state.user.singleClick || !this.allowedView) {
+      if (getters.opensOnSingleClick() || !this.allowedView) {
         return false;
       }
       return this.isSelected;
@@ -580,7 +580,7 @@ export default {
       }
 
       if (
-        !state.user.singleClick &&
+        !getters.opensOnSingleClick() &&
         getters.selectedCount() !== 0 &&
         event.button === 0
       ) {
@@ -643,7 +643,7 @@ export default {
       }
 
       if (
-        !state.user.singleClick &&
+        !getters.opensOnSingleClick() &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.shiftKey &&

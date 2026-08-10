@@ -588,6 +588,23 @@ export const getters = {
       showHidden: false, // Backend handles this now, but kept for API compatibility
     };
   },
+  // Whether a single click opens a file or folder. Always yes, deliberately.
+  //
+  // This used to read state.user.singleClick, a per-account preference that defaulted to
+  // off. Two problems followed. SidebarDirectories opens a folder on a plain click and
+  // never consulted the preference, so the same action followed different rules depending
+  // on which half of the screen you were on. And with the preference off, clicking a file
+  // did nothing visible at all -- no navigation, no message -- which reads as a broken
+  // application rather than as a setting you have not found. In a product whose value
+  // rests on being trusted, "it doesn't work" is an expensive thing to imply by accident.
+  //
+  // Touch settles the argument. A double tap on a phone or tablet is the browser's zoom
+  // gesture, not a second click, so there is no reliable double-tap-to-open on the devices
+  // a lot of people will use. Single tap is the only natural way in.
+  //
+  // The stored preference is left alone rather than migrated: nothing reads it for opening
+  // now, so no user record has to be touched and nobody's session changes underneath them.
+  opensOnSingleClick: () => true,
   isSafeModeItem: (source, path) => {
     return state.safeMode.items.some(item => item.source === source && item.path === path);
   },

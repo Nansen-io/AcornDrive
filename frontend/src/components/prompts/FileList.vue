@@ -291,7 +291,7 @@ export default {
       if (this.isDisplayMode) {
         // In display mode, navigate directly to the item
         this.navigateToItem(event);
-      } else if (state.user.singleClick) {
+      } else if (getters.opensOnSingleClick()) {
         this.next(event);
       } else {
         this.select(event);

@@ -369,6 +369,7 @@
     "protectDuration": "Protect file",
     "protectDurationMessage": "How long should this file be protected?",
     "protectHours": "hours",
+    "protectPeriodThreeMonths": "3 months",
     "protectPeriodSixMonths": "6 months",
     "protectPeriodOneYear": "1 year",
     "protectPeriodTwoYears": "2 years",

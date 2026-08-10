@@ -100,7 +100,7 @@
 
 <script>
 import { findDuplicates } from "@/api/search";
-import { state, mutations } from "@/store";
+import { state, mutations, getters } from "@/store";
 import { getHumanReadableFilesize } from "@/utils/filesizes";
 import { eventBus } from "@/store/eventBus";
 import ListingItem from "@/components/files/ListingItem.vue";
@@ -377,7 +377,7 @@ export default {
 
       // Respect single-click vs double-click setting
       if (event.button === 0) {
-        const quickNav = state.user.singleClick && !state.multiple;
+        const quickNav = getters.opensOnSingleClick() && !state.multiple;
 
         if (quickNav) {
           // Single-click navigation enabled - go immediately

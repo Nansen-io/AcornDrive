@@ -16,6 +16,7 @@ export const HOURS_PER_YEAR = 8760;
 
 // Ordered shortest to longest. `key` names an i18n string; `hours` is what is sent.
 export const PROTECT_PERIODS = [
+  { key: "threeMonths", hours: 3 * HOURS_PER_MONTH },
   { key: "sixMonths", hours: 6 * HOURS_PER_MONTH },
   { key: "oneYear", hours: HOURS_PER_YEAR },
   { key: "twoYears", hours: 2 * HOURS_PER_YEAR },
