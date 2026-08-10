@@ -65,6 +65,13 @@ export default {
     this.destroyDoc();
   },
   methods: {
+    // Extracted so the arithmetic can be tested without mounting anything. The bug it
+    // exists to prevent was invisible: a counter that starts at undefined produces NaN,
+    // and NaN fails every comparison including with itself.
+    nextRenderSeq() {
+      this.renderSeq = (this.renderSeq || 0) + 1;
+      return this.renderSeq;
+    },
     destroyDoc() {
       if (this.doc) {
         try {
@@ -79,7 +86,12 @@ export default {
       // A plain counter, not an object identity test. If load() runs again before this one
       // finishes -- a fast double navigation, say -- the older run sees the number has moved
       // and stops. Numbers compare the same whether or not anything wrapped them.
-      const seq = ++this.renderSeq;
+      //
+      // Initialised here rather than trusting created(). Vue sets up immediate watchers
+      // *before* the created hook runs, so on the very first load this.renderSeq was still
+      // undefined, ++undefined gave NaN, and the guard below compared NaN with NaN -- never
+      // equal, so every render stopped on its first page. Blank viewer, no error, again.
+      const seq = this.nextRenderSeq();
       this.destroyDoc();
       this.loading = true;
       this.error = "";

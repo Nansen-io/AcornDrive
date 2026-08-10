@@ -30,3 +30,30 @@ describe("PdfViewer", () => {
     }
   });
 });
+
+describe("nextRenderSeq", () => {
+  // Vue sets up immediate watchers before the created hook, so the first call happens with
+  // renderSeq still undefined. ++undefined is NaN, and NaN !== NaN, so the render guard
+  // rejected its own render on page one and drew nothing at all.
+  it("starts at 1 even when nothing has initialised it", () => {
+    const ctx = {};
+    expect(PdfViewer.methods.nextRenderSeq.call(ctx)).toBe(1);
+    expect(Number.isNaN(ctx.renderSeq)).toBe(false);
+  });
+
+  it("increases, so an older render can tell it has been superseded", () => {
+    const ctx = {};
+    const first = PdfViewer.methods.nextRenderSeq.call(ctx);
+    const second = PdfViewer.methods.nextRenderSeq.call(ctx);
+    expect(second).toBe(first + 1);
+    expect(first).not.toBe(ctx.renderSeq);
+  });
+
+  it("returns a value that compares equal to itself", () => {
+    // The whole point: whatever this returns must satisfy `seq === this.renderSeq` for the
+    // current render. NaN does not, which is how a blank viewer happened twice.
+    const ctx = {};
+    const seq = PdfViewer.methods.nextRenderSeq.call(ctx);
+    expect(seq === ctx.renderSeq).toBe(true);
+  });
+});
