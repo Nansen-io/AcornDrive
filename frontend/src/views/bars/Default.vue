@@ -36,6 +36,30 @@
         :label="$t('general.save')"
         @action="save()"
       />
+      <!-- Close the document.
+           The multibutton at the top left already does this, but its icon changes meaning by
+           context (menu, back, close) and carries no label, so nobody finds it. What people
+           reach for instead is the browser tab's X -- and because a document is a route change
+           inside the same tab rather than a window of its own, that closes Drive itself and
+           sends them back to the hub tile to start again.
+           Fixed by making the way out visible and named, beside the one control in this bar
+           that people do notice. Deliberately not by opening documents in their own tabs: every
+           extra tab is a survivor's document left on screen on a machine that may not be
+           theirs, and someone interrupted closes what is in front of them and hopes. -->
+      <button
+        v-if="isPreviewView"
+        type="button"
+        class="privacy-pill"
+        :title="$t('general.close')"
+        @click="multiAction"
+      >
+        <svg class="privacy-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+        <span>{{ $t('general.close') }}</span>
+      </button>
       <!-- Privacy Screen button — same format as the other joliro apps (landing page). -->
       <button
         type="button"
@@ -162,6 +186,10 @@ export default {
     },
     isDarkMode() {
       return getters.isDarkMode();
+    },
+    isPreviewView() {
+      // Covers every document view: preview, editor, docViewer, epubViewer, onlyOffice.
+      return getters.isPreviewView();
     },
     isSettings() {
       return getters.isSettings();
