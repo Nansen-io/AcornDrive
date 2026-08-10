@@ -39,8 +39,19 @@ export default {
     return {
       loading: true,
       error: "",
-      doc: null,
     };
+  },
+  created() {
+    // Deliberately not in data(). Vue makes everything returned from data() reactive, so
+    // `this.doc` would be a Proxy wrapping the pdfjs document. The supersede check in
+    // renderAll compares the stored document against the one it is rendering, and a proxy
+    // is never identical to the object it wraps -- so that check fired on the first page of
+    // every render and produced a viewer with no pages, no error and nothing on screen.
+    //
+    // Deep-proxying a pdfjs document is also pointless work on a large file. Nothing in the
+    // template reads it, so it has no business being reactive.
+    this.doc = null;
+    this.renderSeq = 0;
   },
   watch: {
     raw: {
@@ -65,6 +76,10 @@ export default {
       }
     },
     async load() {
+      // A plain counter, not an object identity test. If load() runs again before this one
+      // finishes -- a fast double navigation, say -- the older run sees the number has moved
+      // and stops. Numbers compare the same whether or not anything wrapped them.
+      const seq = ++this.renderSeq;
       this.destroyDoc();
       this.loading = true;
       this.error = "";
@@ -89,7 +104,7 @@ export default {
         this.doc = doc;
         this.loading = false;
         await this.$nextTick();
-        await this.renderAll(doc);
+        await this.renderAll(doc, seq);
       } catch (e) {
         // A PDF that will not render must say so. Failing to a blank screen is how this
         // looked like the application was broken in the first place.
@@ -98,7 +113,7 @@ export default {
         console.error("PdfViewer:", e);
       }
     },
-    async renderAll(doc) {
+    async renderAll(doc, seq) {
       const host = this.$refs.pages;
       if (!host) return;
       host.innerHTML = "";
@@ -106,7 +121,7 @@ export default {
       // large enough to exhaust memory on a long document.
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       for (let n = 1; n <= doc.numPages; n++) {
-        if (this.doc !== doc) return; // navigated away mid-render
+        if (seq !== this.renderSeq) return; // superseded by a newer load
         const page = await doc.getPage(n);
         const viewport = page.getViewport({ scale: 1.5 });
         const canvas = document.createElement("canvas");
