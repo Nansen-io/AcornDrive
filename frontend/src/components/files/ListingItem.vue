@@ -31,6 +31,25 @@
     @touchend="cancelContext"
     @mouseup="cancelContext"
   >
+    <!-- Badges for the tile views.
+         The two status-dot columns below are hidden by listing.css in gallery, icons and
+         normal views, so in every view except the list a protected file and a SAFEMode file
+         looked exactly like an ordinary one. Someone had no idea a document carried a PIN
+         until the code was read, and protection that had been set was invisible in the view
+         most people use. A protection nobody can see is one people assume has failed, and
+         then work around. -->
+    <span
+      v-if="isProtected || isInSafeMode"
+      class="state-badges"
+      :aria-label="[isProtected ? $t('buttons.protect') : null, isInSafeMode ? $t('general.safeMode') : null].filter(Boolean).join(', ')"
+    >
+      <span v-if="isProtected" class="state-badge state-badge--protected" :title="$t('buttons.protect')">
+        <i class="material-icons">shield</i>
+      </span>
+      <span v-if="isInSafeMode" class="state-badge state-badge--safemode" :title="$t('general.safeMode')">
+        <i class="material-icons">visibility_off</i>
+      </span>
+    </span>
     <span class="status-col status-indicator">
       <span class="status-dot" :class="{ active: isProtected }"></span>
     </span>

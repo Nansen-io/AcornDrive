@@ -778,3 +778,53 @@ body.rtl #listingView {
 #main.moveWithSidebar #listingView.icons .file-items {
   grid-template-columns: repeat(auto-fill, minmax(calc(var(--icons-view-cell-size, 100px) * 0.9), 1fr));
 }
+
+/* Protected and SAFEMode badges.
+   The .status-col dots are hidden in gallery, icons and normal views, which left those views
+   with no indication at all that a file was protected or hidden behind a PIN -- and those are
+   the views most people use. These badges fill that gap and appear only where the dots do
+   not, so the list view is unchanged and nothing is signalled twice. */
+.listing-item {
+  position: relative;
+}
+
+.listing-item .state-badges {
+  display: none;
+}
+
+#listingView.gallery .listing-item .state-badges,
+#listingView.icons .listing-item .state-badges,
+#listingView.normal .listing-item .state-badges {
+  display: flex;
+  gap: 0.25em;
+  position: absolute;
+  top: 0.35em;
+  right: 0.35em;
+  z-index: 2;
+  /* Decoration, not a control: clicks belong to the item underneath. */
+  pointer-events: none;
+}
+
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.state-badge .material-icons {
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.state-badge--protected {
+  background: rgba(76, 175, 80, 0.9);
+}
+
+.state-badge--safemode {
+  background: rgba(33, 33, 33, 0.9);
+}
