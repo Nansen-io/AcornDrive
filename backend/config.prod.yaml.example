@@ -37,8 +37,8 @@ auth:
       adminClaimValue: "admin"
       # --- PRODUCTION (nansenprod B2C + nansenprod ChainFS) -----------------------------------
       # Everything runs in PROD. User login uses the hub's B2C user-flow (B2C_1_signup_signin) so
-      # the hub SSO carries over seamlessly. ChainFS uploads use the shared SERVICE ACCOUNT token
-      # (serviceUsername below), NOT per-user tokens — so no per-user provisioning is needed.
+      # the hub SSO carries over seamlessly. ChainFS uploads use the shared SERVICE KEY
+      # (serviceKey below), NOT per-user tokens — so no per-user provisioning is needed.
       loginUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/authorize?client_id=f415826b-2d06-44ef-aba1-4ec5ef1036f9&scope=openid+profile+https%3A%2F%2Fnansenprod.onmicrosoft.com%2Ftasks-api%2Faccess_as_user"
       tokenUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/token"
       logoutUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/logout"
@@ -48,11 +48,12 @@ auth:
       discoveryUrl: "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/v2.0"
       # ChainFS storage — PRODUCTION.
       apiBaseUrl: "https://nansenprod.azurewebsites.net"
-      # serviceUsername: the dedicated ChainFS service account's B2C sub. Set it (and the client
-      # secret) on the Container App via FILEBROWSER_CHAINFS_SERVICE_USERNAME. When set, every
-      # protected file is uploaded under this one account (named "<userID>_<filename>") using its
-      # refresh token, captured on its one-time login.
-      serviceUsername: ""
+      # serviceKey: static key that NasenAPI maps to the shared ChainFS service account
+      # (X-Service-Key; configured on NansenPROD as ServiceKeys__0__*). Secret — inject it on the
+      # Container App via FILEBROWSER_CHAINFS_SERVICE_KEY, never here. When set, every protected
+      # file is uploaded under that one account (named "<userID>_<filename>"). Nothing expires and
+      # no sign-in is ever needed.
+      serviceKey: ""
       # Every value above can be overridden per-deployment via the FILEBROWSER_CHAINFS_* env vars.
     password:
       enabled: false

@@ -6,6 +6,7 @@
 |---|---|
 | `FILEBROWSER_JWT_TOKEN_SECRET` | Signs all session JWTs and encrypts stored Azure tokens. 32+ random bytes. If unset, a random key is generated and persisted on first init. **Set this in prod to control rotation.** |
 | `FILEBROWSER_CHAINFS_CLIENT_SECRET` | Azure AD B2C client secret (only for a confidential client). |
+| `FILEBROWSER_CHAINFS_SERVICE_KEY` | Static ChainFS service key (`X-Service-Key`) that NasenAPI maps to the shared service account. Must match `ServiceKeys__0__Key` on the ChainFS App Service. |
 | `FILEBROWSER_CHAINFS_ISSUER_URL` | **REQUIRED when chainfs auth is enabled.** B2C ID-token issuer. Must equal the exact `iss` claim of B2C ID tokens. When unset, interactive B2C logins are **refused** — see below. |
 | `FILEBROWSER_ACORN_TOOLS_SECRET` | API key for the acorn.tools internal subscription + ChainFS-token endpoints. |
 | `FILEBROWSER_ACORN_DRIVE_SSO_SECRET` | HMAC secret verifying SSO handover tokens from the acorn.tools hub. Without it, tile logins are rejected. |

@@ -73,10 +73,16 @@ Right-click → Protect uploads a file to ChainFS and marks it as protected:
 - Protected indicator (green dot) shown in file list
 - Protected column is sortable
 - Protected files cannot be deleted or moved until expiry
+- Uploads authenticate to ChainFS with a static **service key** (`FILEBROWSER_CHAINFS_SERVICE_KEY`,
+  sent as `X-Service-Key`) that NasenAPI maps to the shared service account. This replaced the
+  earlier refresh-token scheme (2026-09-22), which needed a manual re-login whenever B2C expired
+  or revoked the token. Files are stored as `<userID>_<filename>` so ownership is recoverable.
 
 **Key files:**
 - `backend/database/protection/protection.go` — BoltDB storage for protection records
 - `backend/http/protect.go` — protectHandler, IsFileProtected, ProtectionExpiresAt
+- `backend/chainfs/client.go` — ChainFS client; `Auth` (bearer token vs service key)
+- `backend/http/internal.go` — x-api-key list/download/upload used by the monitor and Diary
 - `backend/http/resource.go` — populates Protected/ProtectedUntil fields on listing
 - `frontend/src/components/files/ListingItem.vue` — green dot indicator
 - `frontend/src/views/files/ListingView.vue` — protected column + sort

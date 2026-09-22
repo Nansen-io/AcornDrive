@@ -13,6 +13,26 @@ import (
 
 const chunkSize = 10 * 1024 * 1024 // 10 MB
 
+// Auth is how a ChainFS request authenticates: either a B2C bearer token (a user's own session)
+// or the static service key that NasenAPI maps to the shared service account (X-Service-Key).
+// The service key never expires and needs no sign-in, which is why every server-side upload,
+// listing and download goes through it.
+type Auth struct {
+	bearer     string
+	serviceKey string
+}
+
+func BearerAuth(token string) Auth  { return Auth{bearer: token} }
+func ServiceKeyAuth(key string) Auth { return Auth{serviceKey: key} }
+
+func (a Auth) apply(req *http.Request) {
+	if a.serviceKey != "" {
+		req.Header.Set("X-Service-Key", a.serviceKey)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+a.bearer)
+}
+
 // FileSubmission matches the ChainFS FileSubmission schema returned by FileEncode
 // and accepted by FileCreate.
 type FileSubmission struct {
@@ -38,16 +58,16 @@ type fileCreateResponse struct {
 }
 
 // UploadFile encodes and stores a file (<=10MB) on ChainFS. Returns the FileGuid.
-func UploadFile(baseUrl, bearerToken, filename string, data io.Reader, aesPassword string) (string, error) {
-	submission, err := encodeChunk(baseUrl, bearerToken, filename, data, aesPassword, -1, -1)
+func UploadFile(baseUrl string, auth Auth, filename string, data io.Reader, aesPassword string) (string, error) {
+	submission, err := encodeChunk(baseUrl, auth, filename, data, aesPassword, -1, -1)
 	if err != nil {
 		return "", err
 	}
-	return createFile(baseUrl, bearerToken, submission)
+	return createFile(baseUrl, auth, submission)
 }
 
 // UploadFileSegmented encodes and stores a file in 10MB chunks. Returns the FileGuid.
-func UploadFileSegmented(baseUrl, bearerToken, filename string, reader io.ReadSeeker, totalSize int64, aesPassword string) (string, error) {
+func UploadFileSegmented(baseUrl string, auth Auth, filename string, reader io.ReadSeeker, totalSize int64, aesPassword string) (string, error) {
 	var lastSubmission *FileSubmission
 	var startByte int64
 
@@ -56,7 +76,7 @@ func UploadFileSegmented(baseUrl, bearerToken, filename string, reader io.ReadSe
 		n, err := reader.Read(buf)
 		if n > 0 {
 			chunk := bytes.NewReader(buf[:n])
-			submission, encErr := encodeChunk(baseUrl, bearerToken, filename, chunk, aesPassword, startByte, int64(n))
+			submission, encErr := encodeChunk(baseUrl, auth, filename, chunk, aesPassword, startByte, int64(n))
 			if encErr != nil {
 				return "", encErr
 			}
@@ -73,12 +93,12 @@ func UploadFileSegmented(baseUrl, bearerToken, filename string, reader io.ReadSe
 	if lastSubmission == nil {
 		return "", fmt.Errorf("no data was read from file")
 	}
-	return createFile(baseUrl, bearerToken, lastSubmission)
+	return createFile(baseUrl, auth, lastSubmission)
 }
 
 // encodeChunk calls POST /api/Debug/FileEncode and returns the FileSubmission.
 // Pass startByte=-1 to omit segmentation params.
-func encodeChunk(baseUrl, bearerToken, filename string, data io.Reader, aesPassword string, startByte, size int64) (*FileSubmission, error) {
+func encodeChunk(baseUrl string, auth Auth, filename string, data io.Reader, aesPassword string, startByte, size int64) (*FileSubmission, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
@@ -114,7 +134,7 @@ func encodeChunk(baseUrl, bearerToken, filename string, data io.Reader, aesPassw
 	}
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Authorization", "Bearer "+bearerToken)
+	auth.apply(req)
 
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
@@ -139,7 +159,7 @@ func encodeChunk(baseUrl, bearerToken, filename string, data io.Reader, aesPassw
 }
 
 // createFile calls POST /api/NansenFile/FileCreate with a FileSubmission and returns the FileGuid.
-func createFile(baseUrl, bearerToken string, submission *FileSubmission) (string, error) {
+func createFile(baseUrl string, auth Auth, submission *FileSubmission) (string, error) {
 	bodyBytes, err := json.Marshal(submission)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal FileSubmission: %w", err)
@@ -157,7 +177,7 @@ func createFile(baseUrl, bearerToken string, submission *FileSubmission) (string
 	req.URL.RawQuery = q.Encode()
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+bearerToken)
+	auth.apply(req)
 
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
@@ -202,13 +222,13 @@ func (u *UserInfo) IsActive() bool {
 }
 
 // GetUserInfo fetches the ChainFS user's subscription status using their Bearer token.
-func GetUserInfo(baseUrl, bearerToken string) (*UserInfo, error) {
+func GetUserInfo(baseUrl string, auth Auth) (*UserInfo, error) {
 	endpoint := fmt.Sprintf("%s/api/NansenFile/UserInfo", baseUrl)
 	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create UserInfo request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+bearerToken)
+	auth.apply(req)
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
@@ -255,13 +275,13 @@ type fileEnumReport struct {
 // ListFiles returns the files owned by the token's account (EnumerateFiles), newest first.
 // The service account owns every protected file, so its own token lists them all. Returns the
 // page of records plus the unpaged total.
-func ListFiles(baseUrl, bearerToken string, rangeStart, rangeSize uint) ([]FileRecord, uint, error) {
+func ListFiles(baseUrl string, auth Auth, rangeStart, rangeSize uint) ([]FileRecord, uint, error) {
 	endpoint := fmt.Sprintf("%s/api/NansenFile/EnumerateFiles?SortBy=date&SortAsc=false&RangeLimited=true&RangeStart=%d&RangeSize=%d", baseUrl, rangeStart, rangeSize)
 	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create EnumerateFiles request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+bearerToken)
+	auth.apply(req)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -288,13 +308,13 @@ func ListFiles(baseUrl, bearerToken string, rangeStart, rangeSize uint) ([]FileR
 // DownloadFile streams a file's bytes from ChainFS by FileGuid (FileDownloadBinary). Returns the
 // raw content and the stored filename (from the X-File-Name header). The service account owns every
 // file, so its token passes the FileDownloadBinary ownership check for all of them.
-func DownloadFile(baseUrl, bearerToken, fileGuid string) (data []byte, filename string, err error) {
+func DownloadFile(baseUrl string, auth Auth, fileGuid string) (data []byte, filename string, err error) {
 	endpoint := fmt.Sprintf("%s/api/NansenFile/FileDownloadBinary?FileGuid=%s", baseUrl, url.QueryEscape(fileGuid))
 	req, reqErr := http.NewRequest(http.MethodGet, endpoint, nil)
 	if reqErr != nil {
 		return nil, "", fmt.Errorf("failed to create FileDownloadBinary request: %w", reqErr)
 	}
-	req.Header.Set("Authorization", "Bearer "+bearerToken)
+	auth.apply(req)
 
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, doErr := client.Do(req)

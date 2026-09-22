@@ -2,7 +2,6 @@ package http
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -27,28 +26,15 @@ func internalAuthorized(r *http.Request) bool {
 	return len(secret) >= 16 && subtle.ConstantTimeCompare([]byte(provided), []byte(secret)) == 1
 }
 
-// serviceChainfsToken mints a fresh ChainFS access token for the shared service account from its
-// stored refresh token, rotating the stored token if ChainFS returns a new one. This is the same
-// mechanism protectHandler uses for uploads.
-func serviceChainfsToken(ctx context.Context) (string, error) {
-	enc := AcornStateGetServiceRefreshToken()
-	if enc == "" {
-		return "", fmt.Errorf("the ChainFS service account has not completed its one-time sign-in")
+// serviceChainfsAuth returns the credential for the shared ChainFS service account: the static
+// service key NasenAPI maps to that account. This is the same credential protectHandler uses for
+// uploads. Fails when no key is configured (FILEBROWSER_CHAINFS_SERVICE_KEY).
+func serviceChainfsAuth() (chainfs.Auth, error) {
+	key := settings.Config.Auth.Methods.ChainFsAuth.ServiceKey
+	if key == "" {
+		return chainfs.Auth{}, fmt.Errorf("no ChainFS service key configured")
 	}
-	rt, err := decryptToken(enc)
-	if err != nil {
-		return "", fmt.Errorf("decrypt service refresh token: %w", err)
-	}
-	at, newRt, err := refreshChainFsAccessToken(ctx, rt)
-	if err != nil {
-		return "", fmt.Errorf("refresh service token: %w", err)
-	}
-	if newRt != "" && newRt != rt {
-		if nenc, encErr := encryptToken(newRt); encErr == nil {
-			AcornStateSaveServiceRefreshToken(nenc)
-		}
-	}
-	return at, nil
+	return chainfs.ServiceKeyAuth(key), nil
 }
 
 // splitOwnerName splits a stored ChainFS name "<userID>_<original>" into its owner id and display
@@ -81,13 +67,9 @@ func internalChainfsFilesHandler(w http.ResponseWriter, r *http.Request, d *requ
 	}
 
 	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
-	if chainfsConfig.ServiceUsername == "" {
-		return http.StatusServiceUnavailable, fmt.Errorf("no ChainFS service account configured")
-	}
-
-	token, err := serviceChainfsToken(r.Context())
+	auth, err := serviceChainfsAuth()
 	if err != nil {
-		logger.Errorf("[internal-chainfs] service token: %v", err)
+		logger.Errorf("[internal-chainfs] service auth: %v", err)
 		return http.StatusServiceUnavailable, fmt.Errorf("ChainFS service account unavailable: %w", err)
 	}
 
@@ -97,7 +79,7 @@ func internalChainfsFilesHandler(w http.ResponseWriter, r *http.Request, d *requ
 		rangeSize = 2000
 	}
 
-	records, total, err := chainfs.ListFiles(chainfsConfig.ApiBaseUrl, token, rangeStart, rangeSize)
+	records, total, err := chainfs.ListFiles(chainfsConfig.ApiBaseUrl, auth, rangeStart, rangeSize)
 	if err != nil {
 		logger.Errorf("[internal-chainfs] list failed: %v", err)
 		return http.StatusBadGateway, fmt.Errorf("could not list ChainFS files: %w", err)
@@ -150,13 +132,9 @@ func internalChainfsUploadHandler(w http.ResponseWriter, r *http.Request, d *req
 	owner := r.URL.Query().Get("owner")
 
 	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
-	if chainfsConfig.ServiceUsername == "" {
-		return http.StatusServiceUnavailable, fmt.Errorf("no ChainFS service account configured")
-	}
-
-	token, err := serviceChainfsToken(r.Context())
+	auth, err := serviceChainfsAuth()
 	if err != nil {
-		logger.Errorf("[internal-chainfs] service token: %v", err)
+		logger.Errorf("[internal-chainfs] service auth: %v", err)
 		return http.StatusServiceUnavailable, fmt.Errorf("ChainFS service account unavailable: %w", err)
 	}
 
@@ -190,9 +168,9 @@ func internalChainfsUploadHandler(w http.ResponseWriter, r *http.Request, d *req
 	var fileGuid string
 	reader := bytes.NewReader(data)
 	if int64(len(data)) > segmentThreshold {
-		fileGuid, err = chainfs.UploadFileSegmented(chainfsConfig.ApiBaseUrl, token, uploadName, reader, int64(len(data)), aesPassword)
+		fileGuid, err = chainfs.UploadFileSegmented(chainfsConfig.ApiBaseUrl, auth, uploadName, reader, int64(len(data)), aesPassword)
 	} else {
-		fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, token, uploadName, reader, aesPassword)
+		fileGuid, err = chainfs.UploadFile(chainfsConfig.ApiBaseUrl, auth, uploadName, reader, aesPassword)
 	}
 	if err != nil {
 		logger.Errorf("[internal-chainfs] upload failed for %s: %v", uploadName, err)
@@ -222,17 +200,13 @@ func internalChainfsDownloadHandler(w http.ResponseWriter, r *http.Request, d *r
 	}
 
 	chainfsConfig := settings.Config.Auth.Methods.ChainFsAuth
-	if chainfsConfig.ServiceUsername == "" {
-		return http.StatusServiceUnavailable, fmt.Errorf("no ChainFS service account configured")
-	}
-
-	token, err := serviceChainfsToken(r.Context())
+	auth, err := serviceChainfsAuth()
 	if err != nil {
-		logger.Errorf("[internal-chainfs] service token: %v", err)
+		logger.Errorf("[internal-chainfs] service auth: %v", err)
 		return http.StatusServiceUnavailable, fmt.Errorf("ChainFS service account unavailable: %w", err)
 	}
 
-	data, filename, err := chainfs.DownloadFile(chainfsConfig.ApiBaseUrl, token, fileGuid)
+	data, filename, err := chainfs.DownloadFile(chainfsConfig.ApiBaseUrl, auth, fileGuid)
 	if err != nil {
 		logger.Errorf("[internal-chainfs] download failed for %s: %v", fileGuid, err)
 		return http.StatusBadGateway, fmt.Errorf("could not download ChainFS file: %w", err)
