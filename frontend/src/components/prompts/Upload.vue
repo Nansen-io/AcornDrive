@@ -7,6 +7,18 @@
     @dragover.prevent="onDragOver" @dragleave.prevent="onDragLeave" @drop.prevent="onDrop">
     <div v-if="files.length === 0" class="drop-hint">
       <i class="material-icons">cloud_upload</i>
+      <div class="browse-buttons">
+        <button @click="openFilePicker" class="button button--flat browse-primary"
+          :aria-label="$t('buttons.uploadFiles')" :title="$t('buttons.uploadFiles')">
+          <i class="material-icons">insert_drive_file</i>
+          {{ $t("buttons.uploadFiles") }}
+        </button>
+        <button @click="openFolderPicker" class="button button--flat"
+          :aria-label="$t('buttons.uploadFolder')" :title="$t('buttons.uploadFolder')">
+          <i class="material-icons">folder</i>
+          {{ $t("buttons.uploadFolder") }}
+        </button>
+      </div>
       <p>{{ $t("prompts.dragAndDrop") }}</p>
     </div>
     <div v-if="showConflictPrompt" class="conflict-overlay">
@@ -77,6 +89,10 @@
     <button @click="clearCompleted" class="button button--flat" :disabled="!hasCompleted"
       :aria-label="$t('buttons.clearCompleted')" :title="$t('buttons.clearCompleted')">
       {{ $t("buttons.clearCompleted") }}
+    </button>
+    <button v-if="files.length > 0" @click="openFilePicker" class="button button--flat"
+      :aria-label="$t('buttons.uploadFiles')" :title="$t('buttons.uploadFiles')">
+      {{ $t("buttons.uploadFiles") }}
     </button>
     <div class="spacer"></div>
     <button v-if="canPauseAll" @click="uploadManager.pauseAll" class="button button--flat"
@@ -269,7 +285,12 @@ export default {
       window.addEventListener("beforeunload", handleBeforeUnload);
       uploadManager.setOnConflict(handleConflict);
       if (props.initialItems) {
+        // Opened by dropping files onto the folder: upload what was dropped.
         await processItems(props.initialItems);
+      } else if (!isUploading.value && state.shareInfo?.shareType !== "upload") {
+        // Opened from the Upload menu: go straight to the file browser. This runs in the same
+        // user click that opened the dialog, so the browser allows the picker to open.
+        openFilePicker();
       }
     });
 
@@ -279,6 +300,14 @@ export default {
       uploadManager.setOnConflict(() => {});
       releaseWakeLock();
     });
+
+    const openFilePicker = () => {
+      if (fileInput.value) fileInput.value.click();
+    };
+
+    const openFolderPicker = () => {
+      if (folderInput.value) folderInput.value.click();
+    };
 
     const onFilePicked = (event) => {
       const pickedFiles = event.target.files;
@@ -382,6 +411,8 @@ export default {
     return {
       fileInput,
       folderInput,
+      openFilePicker,
+      openFolderPicker,
       onFilePicked,
       onFolderPicked,
       files,
@@ -447,6 +478,31 @@ export default {
   margin: 0;
   font-size: 0.9em;
   opacity: 0.7;
+}
+
+.browse-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5em;
+  margin-bottom: 0.8em;
+}
+
+.browse-buttons .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.browse-buttons .button i {
+  font-size: 1.2em;
+  margin: 0;
+  opacity: 1;
+}
+
+.browse-buttons .browse-primary {
+  background: var(--primaryColor);
+  color: #fff;
 }
 
 .upload-list {
