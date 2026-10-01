@@ -47,8 +47,8 @@ export const state = reactive({
     info: {},
   },
   safeMode: {
-    items: [],      // [{source, path}] — loaded from user object on login
-    unlocked: false, // session-only: true after correct PIN entered
+    items: [],      // [{source, path}] — loaded from user object on login; each has its own PIN
+    unlocked: {},   // session-only: "source::path" -> true for items whose PIN was entered
   },
   user: {
     preview: {

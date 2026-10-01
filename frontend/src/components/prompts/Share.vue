@@ -103,13 +103,9 @@
         </p>
         <select class="input" v-model="shareType">
           <option value="normal">{{ $t("share.normalShare") }}</option>
-          <option value="upload">{{ $t("share.uploadShare") }}</option>
           <option value="viewOnly">{{ $t("share.viewOnlyShare") }}</option>
+          <option value="upload">{{ $t("share.uploadShare") }}</option>
         </select>
-        <button @click="openSidebarLinksCustomization" class="button button--flat customize-sidebar-links-button">
-          <i class="material-icons">link</i>
-          {{ $t('share.customizeSidebarLinksButton') }}
-        </button>
         <div class="settings-items" style="margin-top: 0.5em;">
           <ToggleSwitch v-if="shareType === 'normal'" class="item" v-model="disableDownload"
             :name="$t('share.disableDownload')" :description="$t('share.disableDownloadDescription')"
@@ -769,37 +765,11 @@ export default {
         this.sidebarLinks = [...data.sidebarLinks];
       }
     },
-    openSidebarLinksCustomization() {
-      // Prepare share data for the SidebarLinks component
-      const shareData = this.isEditMode ? this.link : this.editingLink || {
-        hash: this.$route.params.hash || 'new',
-        sidebarLinks: this.sidebarLinks,
-      };
-
-      mutations.showHover({
-        name: 'sidebarLinks',
-        props: {
-          context: 'share',
-          shareData: {
-            ...shareData,
-            sidebarLinks: this.sidebarLinks,
-          },
-        },
-      });
-    },
   },
 };
 </script>
 
 <style scoped>
-.customize-sidebar-links-button {
-  width: 100%;
-  margin-top: 0.5em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .setting-item {
   display: flex;
   justify-content: space-between;

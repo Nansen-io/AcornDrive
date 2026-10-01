@@ -81,7 +81,7 @@ type User struct {
 	AzureRefreshToken   string               `json:"azureRefreshToken,omitempty"`   // Azure AD B2C refresh token (encrypted)
 	AzureTokenExpiry    int64                `json:"azureTokenExpiry,omitempty"`    // Token expiration time (Unix timestamp)
 	ChainFSSubscribed   bool                 `json:"chainfsSubscribed"`             // whether the user has an active ChainFS subscription
-	SafeModePINHash     string               `json:"safeModePinHash,omitempty"`     // SHA-256 hash of the user's SAFEMode PIN (never sent to frontend via API)
+	SafeModePINHash     string               `json:"safeModePinHash,omitempty"`     // legacy single SAFEMode PIN; only used for items added before per-item PINs (never sent to frontend via API)
 	// legacy for migration purposes... og filebrowser has perm attribute
 	Perm           Permissions `json:"perm,omitzero"`
 	Version        int         `json:"version"`
@@ -132,9 +132,11 @@ type NonAdminEditable struct {
 }
 
 // SafeModeItem identifies a file or folder the user has placed in SAFEMode.
+// Each item carries its own PIN; anything under a SAFEMode folder shares that folder's PIN.
 type SafeModeItem struct {
-	Source string `json:"source"`
-	Path   string `json:"path"`
+	Source  string `json:"source"`
+	Path    string `json:"path"`
+	PINHash string `json:"pinHash,omitempty"` // SHA-256 of this item's PIN (stripped before reaching the frontend). Empty on items added before per-item PINs: those use the user's SafeModePINHash.
 }
 
 type FileLoading struct {

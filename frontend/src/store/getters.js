@@ -605,11 +605,44 @@ export const getters = {
   // The stored preference is left alone rather than migrated: nothing reads it for opening
   // now, so no user record has to be touched and nobody's session changes underneath them.
   opensOnSingleClick: () => true,
+  // True only for an item that was itself added to SAFEMode (it has its own PIN).
   isSafeModeItem: (source, path) => {
-    return state.safeMode.items.some(item => item.source === source && item.path === path);
+    return state.safeMode.items.some(item => item.source === source && safeModeNorm(item.path) === safeModeNorm(path));
+  },
+  // True for a SAFEMode item or anything inside a SAFEMode folder, which share that folder's PIN.
+  isSafeModeCovered: (source, path) => {
+    return safeModeCoveringItems(source, path).length > 0;
+  },
+  // True while any SAFEMode item covering this path is still locked this session.
+  isSafeModeLocked: (source, path) => {
+    return safeModeCoveringItems(source, path).some(item => !state.safeMode.unlocked[safeModeKey(item)]);
+  },
+  // The SAFEMode item whose PIN opens this path: the outermost locked folder that covers it.
+  safeModeLockingItem: (source, path) => {
+    const locked = safeModeCoveringItems(source, path)
+      .filter(item => !state.safeMode.unlocked[safeModeKey(item)])
+      .sort((a, b) => safeModeNorm(a.path).length - safeModeNorm(b.path).length);
+    return locked[0] || null;
   },
   isSafeModeActive: () => {
-    return state.safeMode.items.length > 0 && !state.safeMode.unlocked;
+    return state.safeMode.items.some(item => !state.safeMode.unlocked[safeModeKey(item)]);
   },
-  safeModeUnlocked: () => state.safeMode.unlocked,
 };
+
+// Folder paths may or may not carry a trailing slash; the source root becomes "".
+function safeModeNorm(path) {
+  return (path || "").replace(/\/+$/, "");
+}
+
+export function safeModeKey(item) {
+  return `${item.source}::${safeModeNorm(item.path)}`;
+}
+
+function safeModeCoveringItems(source, path) {
+  const target = safeModeNorm(path);
+  return state.safeMode.items.filter(item => {
+    if (item.source !== source) return false;
+    const p = safeModeNorm(item.path);
+    return p === target || p === "" || target.startsWith(p + "/");
+  });
+}

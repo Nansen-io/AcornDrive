@@ -92,6 +92,7 @@ func prepForFrontend(u *users.User) {
 	u.TOTPSecret = ""
 	u.TOTPNonce = ""
 	u.SafeModePINHash = ""
+	u.SafeModeItems = publicSafeModeItems(u.SafeModeItems)
 	// Compute quota and current storage usage for the quota bar
 	u.QuotaBytes = getUserQuotaBytes(u.Username)
 	if u.QuotaBytes > 0 {
@@ -220,21 +221,21 @@ func userPutHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (
 	if err = json.Unmarshal(body, &req); err != nil {
 		return http.StatusBadRequest, err
 	}
+	var existing *users.User
 	if givenUserId != 0 {
-		u, err2 := store.Users.Get(givenUserId)
-		if err2 != nil {
-			return http.StatusBadRequest, fmt.Errorf("no user not found, please provide a valid id or username")
-		}
-		req.User.ID = u.ID
-		req.User.Username = u.Username
+		existing, err = store.Users.Get(givenUserId)
 	} else {
-		u, err2 := store.Users.Get(username)
-		if err2 != nil {
-			return http.StatusBadRequest, fmt.Errorf("no user not found, please provide a valid id or username")
-		}
-		req.User.ID = u.ID
-		req.User.Username = u.Username
+		existing, err = store.Users.Get(username)
 	}
+	if err != nil {
+		return http.StatusBadRequest, fmt.Errorf("no user not found, please provide a valid id or username")
+	}
+	req.User.ID = existing.ID
+	req.User.Username = existing.Username
+	// SAFEMode is only changed through /api/safemode. The frontend never sees the PIN hashes,
+	// so a which=all save would otherwise write them back empty and leave the items unlockable.
+	req.User.SafeModeItems = existing.SafeModeItems
+	req.User.SafeModePINHash = existing.SafeModePINHash
 	if !req.User.OtpEnabled {
 		req.User.TOTPSecret = ""
 		req.User.TOTPNonce = ""

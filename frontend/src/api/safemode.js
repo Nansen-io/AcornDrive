@@ -33,12 +33,14 @@ export async function removeFromSafeMode(items, pin) {
   return res.json();
 }
 
-export async function verifySafeModePin(pin) {
+// target {source, path} checks that one SAFEMode item's PIN; without it, the PIN unlocks
+// every item that uses it.
+export async function verifySafeModePin(pin, target = null) {
   const res = await fetchURL(getApiPath("api/safemode/verify"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pin }),
+    body: JSON.stringify(target ? { pin, source: target.source, path: target.path } : { pin }),
   });
   if (!res.ok) throw new Error(await res.text());
-  return res.json(); // { valid: true/false }
+  return res.json(); // { valid: true/false, items: [{source, path}] } — items are what the PIN unlocked
 }

@@ -1,10 +1,10 @@
 <template>
   <div class="card-title">
-    <h2>{{ isRemoving ? $t("prompts.safeModeRemove") : (hasPIN ? $t("prompts.safeModeAdd") : $t("prompts.safeModeAddFirstTime")) }}</h2>
+    <h2>{{ isRemoving ? $t("prompts.safeModeRemove") : $t("prompts.safeModeAdd") }}</h2>
   </div>
 
   <div class="card-content">
-    <p>{{ isRemoving ? $t("prompts.safeModeRemoveMessage") : (hasPIN ? $t("prompts.safeModeConfirmPIN") : $t("prompts.safeModeSetPIN")) }}</p>
+    <p>{{ isRemoving ? $t("prompts.safeModeRemoveMessage") : $t("prompts.safeModeSetPIN") }}</p>
 
     <div class="safemode-pin-row">
       <input
@@ -21,12 +21,12 @@
         :placeholder="$t('prompts.safeModePINPlaceholder')"
         v-model="pin"
         v-focus
-        @keyup.enter="!hasPIN && !isRemoving ? focusConfirm() : submit()"
+        @keyup.enter="!isRemoving ? focusConfirm() : submit()"
         autocomplete="off"
       />
     </div>
 
-    <div class="safemode-pin-row" v-if="!hasPIN && !isRemoving">
+    <div class="safemode-pin-row" v-if="!isRemoving">
       <input
         ref="confirmInput"
         class="input safemode-pin-input"
@@ -85,10 +85,6 @@ export default {
       type: Array,
       required: true,
     },
-    hasPIN: {
-      type: Boolean,
-      default: false,
-    },
     isRemoving: {
       type: Boolean,
       default: false,
@@ -105,7 +101,7 @@ export default {
   computed: {
     canSubmit() {
       if (this.pin.length !== 4) return false;
-      if (!this.hasPIN && !this.isRemoving) {
+      if (!this.isRemoving) {
         return this.pinConfirm.length === 4;
       }
       return true;
@@ -124,7 +120,7 @@ export default {
       if (!this.canSubmit || this.loading) return;
       this.errorMessage = "";
 
-      if (!this.hasPIN && !this.isRemoving && this.pin !== this.pinConfirm) {
+      if (!this.isRemoving && this.pin !== this.pinConfirm) {
         this.errorMessage = this.$t("prompts.safeModePINMismatch");
         this.pinConfirm = "";
         if (this.$refs.confirmInput) this.$refs.confirmInput.focus();
@@ -141,7 +137,8 @@ export default {
         }
         mutations.setSafeModeItems(result.items);
         if (!this.isRemoving) {
-          mutations.setSafeModeUnlocked(true);
+          // The PIN was just typed, so don't make the user enter it again to open what they added.
+          mutations.unlockSafeModeItems(this.items);
         }
         notify.showSuccessToast(
           this.isRemoving

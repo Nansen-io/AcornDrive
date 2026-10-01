@@ -60,6 +60,22 @@ This is a fork of [FileBrowser Quantum](https://github.com/gtsteffaniak/filebrow
 
 **Status:** Implementation in progress (see Todo.md for remaining tasks)
 
+### 3. Simplified Share Dialog
+
+- Share type presets reordered and renamed: **Download**, **View Only**, **Upload - add files** (en.json labels; values `normal`/`viewOnly`/`upload` unchanged)
+- "Customize Links" (share sidebar links) button removed from the share dialog; new shares still get the default QR/Download sidebar links
+
+### 4. SAFEMode: a PIN per item (2026-10-01)
+
+SAFEMode used to have one PIN per user, so every later add asked for the "PIN you set earlier" (Rose's feedback). Now:
+- Each add asks for a new PIN (with confirmation). Every item added in that dialog gets that PIN, stored as `SafeModeItem.PINHash`.
+- Anything inside a SAFEMode folder shares the folder's PIN. It is gated by the folder (blurred and PIN-prompted when reached while the folder is locked, e.g. via search) and can't be added separately.
+- Unlocks are per item (10 min each). The menu's "Unlock SAFEMode" unlocks every item that uses the PIN entered. Removing needs the PIN of each item being removed.
+- Items added before this change have no `PINHash` and keep using the user's old `SafeModePINHash`.
+- PIN hashes are stripped from every response (`publicSafeModeItems`), and `PUT /api/users` keeps the stored SAFEMode values so a `which=all` save can't blank them.
+
+**Key files:** `backend/http/safemode.go`, `backend/http/users.go`, `frontend/src/store/getters.js` / `mutations.js`, `frontend/src/components/prompts/SafeMode.vue` / `SafeModeUnlock.vue`
+
 ---
 
 ## Future Priorities

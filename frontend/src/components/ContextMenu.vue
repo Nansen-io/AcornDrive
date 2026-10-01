@@ -246,11 +246,10 @@ export default {
       return showDelete;
     },
     isFirstSelectedLockedSafeMode() {
-      if (getters.safeModeUnlocked()) return false;
       const item = getters.getFirstSelected();
       if (!item) return false;
       const source = item.source || state.req?.source;
-      return getters.isSafeModeItem(source, item.path);
+      return getters.isSafeModeLocked(source, item.path);
     },
     hasDownload() {
       if (!this.permissions.download || this.selectedCount === 0) return false;
@@ -298,7 +297,8 @@ export default {
       const item = getters.getFirstSelected();
       if (!item) return false;
       const source = item.source || state.req.source;
-      return !getters.isSafeModeItem(source, item.path);
+      // Anything inside a SAFEMode folder already has that folder's PIN.
+      return !getters.isSafeModeCovered(source, item.path);
     },
     showSafeModeRemove() {
       if (this.showCreate || this.isShare || this.isSearchActive) return false;
@@ -316,7 +316,7 @@ export default {
         const item = getters.getFirstSelected();
         if (item) {
           const source = item.source || state.req.source;
-          if (getters.isSafeModeItem(source, item.path) && !getters.safeModeUnlocked()) {
+          if (getters.isSafeModeLocked(source, item.path)) {
             return false;
           }
         }
@@ -595,11 +595,10 @@ export default {
         source: item.source || state.req.source,
         path: item.path,
       }));
-      const hasPIN = state.safeMode.items.length > 0 || false;
       mutations.closeHovers();
       mutations.showHover({
         name: "SafeMode",
-        props: { items: safeModeItems, hasPIN, isRemoving: false },
+        props: { items: safeModeItems, isRemoving: false },
       });
     },
     async safeModeRemoveSelected() {
@@ -613,7 +612,7 @@ export default {
       mutations.closeHovers();
       mutations.showHover({
         name: "SafeMode",
-        props: { items: safeModeItems, hasPIN: true, isRemoving: true },
+        props: { items: safeModeItems, isRemoving: true },
       });
     },
     selectAllItems() {

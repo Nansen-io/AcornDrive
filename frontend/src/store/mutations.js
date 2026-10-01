@@ -1,9 +1,9 @@
 import * as i18n from "@/i18n";
 import { state } from "./state.js";
-import { getters } from "./getters.js";
+import { getters, safeModeKey } from "./getters.js";
 import { emitStateChanged } from './eventBus'; // Import the function from eventBus.js
 
-let _safeModeTimer = null;
+const _safeModeTimers = {}; // SAFEMode item key -> relock timer
 import { usersApi } from "@/api";
 import { notify } from "@/notify";
 import { sortedItems } from "@/utils/sort.js";
@@ -378,7 +378,7 @@ export const mutations = {
 
       // Sync SAFEMode items from user object; unlock state is always reset on login
       state.safeMode.items = value.safeModeItems || [];
-      state.safeMode.unlocked = false;
+      mutations.lockAllSafeMode();
 
     } catch (error) {
       // Silently ignore errors when loading preferences
@@ -861,19 +861,31 @@ export const mutations = {
     state.safeMode.items = items || [];
     emitStateChanged();
   },
-  setSafeModeUnlocked: (value) => {
-    if (_safeModeTimer) {
-      clearTimeout(_safeModeTimer);
-      _safeModeTimer = null;
-    }
-    state.safeMode.unlocked = value;
-    if (value) {
-      _safeModeTimer = setTimeout(() => {
-        state.safeMode.unlocked = false;
-        _safeModeTimer = null;
+  // Unlocks these SAFEMode items (and everything inside them) for 10 minutes.
+  // Each item has its own PIN, so each relocks on its own timer.
+  unlockSafeModeItems: (items) => {
+    const unlocked = { ...state.safeMode.unlocked };
+    for (const item of items || []) {
+      const key = safeModeKey(item);
+      if (_safeModeTimers[key]) clearTimeout(_safeModeTimers[key]);
+      unlocked[key] = true;
+      _safeModeTimers[key] = setTimeout(() => {
+        const next = { ...state.safeMode.unlocked };
+        delete next[key];
+        state.safeMode.unlocked = next;
+        delete _safeModeTimers[key];
         emitStateChanged();
       }, 10 * 60 * 1000);
     }
+    state.safeMode.unlocked = unlocked;
+    emitStateChanged();
+  },
+  lockAllSafeMode: () => {
+    for (const key of Object.keys(_safeModeTimers)) {
+      clearTimeout(_safeModeTimers[key]);
+      delete _safeModeTimers[key];
+    }
+    state.safeMode.unlocked = {};
     emitStateChanged();
   },
 };

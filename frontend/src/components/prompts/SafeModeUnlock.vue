@@ -48,7 +48,7 @@
 </template>
 
 <script>
-import { mutations } from "@/store";
+import { mutations, getters } from "@/store";
 import { safeModeApi } from "@/api";
 import { notify } from "@/notify";
 import { url } from "@/utils";
@@ -77,9 +77,18 @@ export default {
       this.errorMessage = "";
       this.loading = true;
       try {
-        const result = await safeModeApi.verifySafeModePin(this.pin);
+        // Each SAFEMode item has its own PIN. Opening something checks the PIN of the item
+        // itself, or of the SAFEMode folder it sits in; the menu's "Unlock SAFEMode" (no
+        // target) unlocks every item that uses the PIN entered.
+        let lockItem = null;
+        if (this.target) {
+          lockItem = getters.isSafeModeItem(this.target.source, this.target.path)
+            ? this.target
+            : getters.safeModeLockingItem(this.target.source, this.target.path);
+        }
+        const result = await safeModeApi.verifySafeModePin(this.pin, lockItem);
         if (result.valid) {
-          mutations.setSafeModeUnlocked(true);
+          mutations.unlockSafeModeItems(result.items);
           notify.showSuccessToast(this.$t("prompts.safeModeUnlocked"));
           mutations.closeHovers();
           if (this.target) {

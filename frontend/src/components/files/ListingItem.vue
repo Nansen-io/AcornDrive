@@ -168,9 +168,15 @@ export default {
       if (!this.path || !this.source) return false;
       return getters.isSafeModeItem(this.source, this.path);
     },
+    // Inside a SAFEMode folder that hasn't been unlocked (e.g. reached through search).
+    // Such items share the folder's PIN, so they carry no badge of their own.
+    isSafeModeLockedByFolder() {
+      if (!this.path || !this.source || this.isInSafeMode) return false;
+      return getters.isSafeModeLocked(this.source, this.path);
+    },
     isSafeBlurred() {
       // Always show the shield visual for any SafeMode file — unlock state only affects the PIN gate in open()
-      return this.isInSafeMode;
+      return this.isInSafeMode || this.isSafeModeLockedByFolder;
     },
     galleryView() {
       return getters.viewMode() === "gallery";
@@ -674,7 +680,7 @@ export default {
       mutations.setLastSelectedIndex(this.index);
     },
     open() {
-      if (this.isInSafeMode) {
+      if (this.isInSafeMode || this.isSafeModeLockedByFolder) {
         mutations.showHover({
           name: "SafeModeUnlock",
           props: { target: { source: this.source, path: this.path } },
