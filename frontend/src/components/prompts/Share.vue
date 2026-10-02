@@ -93,7 +93,12 @@
             {{ $t("general.change") }}
           </button>
         </div>
-        <input v-else class="input" type="password" autocomplete="new-password" v-model.trim="password" required />
+        <template v-else>
+          <input class="input" type="password" autocomplete="new-password" v-model.trim="password" required />
+          <p>{{ $t("share.confirmPassword") }}</p>
+          <input class="input" type="password" autocomplete="new-password" v-model.trim="confirmPassword"
+            :class="{ 'input--error': confirmPassword && confirmPassword !== password }" @keyup.enter="submit" required />
+        </template>
         <p>
           {{ $t("share.shareType") }}
           <i class="no-select material-symbols-outlined tooltip-info-icon"
@@ -279,6 +284,7 @@ export default {
       /** @type {Share[]} */
       links: [],
       password: "",
+      confirmPassword: "",
       listing: true,
       allowModify: false,
       disableDownload: false,
@@ -387,6 +393,7 @@ export default {
     listing(isListing) {
       if (!isListing) {
         this.password = "";
+        this.confirmPassword = "";
         this.isChangingPassword = false;
       }
     },
@@ -411,6 +418,7 @@ export default {
             : "0";
           this.unit = "hours";
           this.password = "";
+          this.confirmPassword = "";
           this.isChangingPassword = false;
           this.disableDownload = this.link.disableDownload || false;
           this.allowModify = this.link.allowModify || false;
@@ -507,6 +515,12 @@ export default {
           notify.showError(this.$t("share.passwordRequired"));
           return;
         }
+        // Password field is visible for new shares, or when changing an existing one
+        const passwordEntered = !this.hasExistingPassword || this.isChangingPassword;
+        if (passwordEntered && this.password !== this.confirmPassword) {
+          notify.showError(this.$t("share.passwordMismatch"));
+          return;
+        }
         if (!this.description) {
           if (this.shareType === 'upload') {
             this.description = this.$t("share.descriptionUploadDefault");
@@ -593,6 +607,7 @@ export default {
         this.time = "";
         this.unit = "hours";
         this.password = "";
+        this.confirmPassword = "";
         this.isChangingPassword = false;
 
         this.listing = true;
@@ -613,6 +628,7 @@ export default {
         : "0";
       this.unit = "hours";
       this.password = "";
+      this.confirmPassword = "";
       this.isChangingPassword = false;
       this.disableDownload = link.disableDownload || false;
       this.allowModify = link.allowModify || false;
@@ -786,6 +802,11 @@ export default {
 /* Prevent inputs from expanding to container height during expand transition */
 .input {
   height: auto;
+}
+
+.input--error {
+  border-color: #f44336;
+  outline-color: #f44336;
 }
 
 .password-change-section {

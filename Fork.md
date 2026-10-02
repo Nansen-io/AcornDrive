@@ -64,6 +64,7 @@ This is a fork of [FileBrowser Quantum](https://github.com/gtsteffaniak/filebrow
 
 - Share type presets reordered and renamed: **Download**, **View Only**, **Upload - add files** (en.json labels; values `normal`/`viewOnly`/`upload` unchanged)
 - "Customize Links" (share sidebar links) button removed from the share dialog; new shares still get the default QR/Download sidebar links
+- Share password must be entered twice; the share is not created if the two entries differ
 
 ### 4. SAFEMode: a PIN per item (2026-10-01)
 
