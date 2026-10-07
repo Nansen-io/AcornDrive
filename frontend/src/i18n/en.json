@@ -273,6 +273,7 @@
     "passwordRequired": "A password is required to create a share.",
     "confirmPassword": "Re-enter Sharing Password",
     "passwordMismatch": "The passwords do not match. Please re-enter the sharing password.",
+    "openShare": "Open",
     "allowedUsernamesListDescription": "Comma-separated usernames who can access the share (when enabled).",
     "shareThemeColorDescription": "CSS color value applied to the share's theme (e.g., red, #0ea5e9, rgb(14,165,233)).",
     "shareTitleDescription": "Custom page title shown on the share page.",

@@ -23,10 +23,10 @@
     <button
       class="button button--flat"
       @click="submit"
-      :aria-label="$t('general.login')"
-      :title="$t('general.login')"
+      :aria-label="$t('share.openShare')"
+      :title="$t('share.openShare')"
     >
-      {{ $t("general.login") }}
+      {{ $t("share.openShare") }}
     </button>
   </div>
 </template>
