@@ -103,7 +103,7 @@ export function post(
   if (!hash || hash === undefined || hash === null) {
     throw new Error('no hash provided')
   }
-  let sharePassword = localStorage.getItem("sharepass:" + hash);
+  let sharePassword = sessionStorage.getItem("sharepass:" + hash);
   if (sharePassword) {
     headers["X-SHARE-PASSWORD"] = sharePassword;
   }
@@ -172,7 +172,7 @@ export function post(
 async function resourceAction(hash, path, method, content, token = "") {
   try {
     let headers = {};
-    let sharePassword = localStorage.getItem("sharepass:" + hash);
+    let sharePassword = sessionStorage.getItem("sharepass:" + hash);
     if (sharePassword) {
       headers["X-SHARE-PASSWORD"] = sharePassword;
     }

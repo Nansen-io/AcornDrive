@@ -600,15 +600,8 @@ func loginWithChainFsUser(w http.ResponseWriter, r *http.Request, username, disp
 		return http.StatusInternalServerError, err
 	}
 
-	// Set cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "filebrowser_quantum_jwt",
-		Value:    tokenString,
-		Path:     config.Server.BaseURL,
-		HttpOnly: true,
-		Secure:   getScheme(r) == "https",
-		SameSite: http.SameSiteLaxMode,
-	})
+	setSessionCookie(w, r, tokenString)
+	markNewSession(w, r)
 
 	// Redirect to original destination or default. Only allow local, same-origin paths to
 	// prevent an open redirect (?redirect=//evil.com or absolute URLs carried via state).
@@ -1181,14 +1174,8 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 		return http.StatusInternalServerError, err
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "filebrowser_quantum_jwt",
-		Value:    tokenString,
-		Path:     config.Server.BaseURL,
-		HttpOnly: true,
-		Secure:   getScheme(r) == "https",
-		SameSite: http.SameSiteLaxMode,
-	})
+	setSessionCookie(w, r, tokenString)
+	markNewSession(w, r)
 
 	// The user is now signed in to Drive, but has no ChainFS token — the handover cannot carry one.
 	// Send them through Drive's own B2C authorization-code flow with prompt=none. They already hold

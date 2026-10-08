@@ -6,6 +6,7 @@ import i18n from "@/i18n";
 import VueLazyload from "vue-lazyload";
 import VuePlyr from "@skjnldsv/vue-plyr"; // Custom media player
 import { listenForSingleLogout } from "@/utils/slo";
+import { checkIdleOnBoot } from "@/utils/idle";
 
 import "./css/styles.css";
 
@@ -42,4 +43,8 @@ app.mixin({
 // from the first moment rather than after the app finishes booting. See utils/slo.ts.
 listenForSingleLogout();
 
-router.isReady().then(() => app.mount("#app"));
+// A session left idle in a browser that restored it is signed out before anything is drawn,
+// and the second leg of an idle sign-out forwards to the hub. See utils/idle.ts.
+if (!checkIdleOnBoot()) {
+  router.isReady().then(() => app.mount("#app"));
+}

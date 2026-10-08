@@ -78,6 +78,20 @@ SAFEMode used to have one PIN per user, so every later add asked for the "PIN yo
 
 **Key files:** `backend/http/safemode.go`, `backend/http/users.go`, `frontend/src/store/getters.js` / `mutations.js`, `frontend/src/components/prompts/SafeMode.vue` / `SafeModeUnlock.vue`
 
+### 5. Session safety (2026-10-09)
+
+Brings Drive in line with the other Joliro apps:
+- **Session cookie ends with the browser.** Every login path and renew set one host-only, `SameSite=Lax` cookie with no expiry (`setSessionCookie`). Renew used to add a persistent `Domain=host` copy that survived closing the browser; it is now deleted on the next renew, logout or hub sign-out.
+- **Logout clears both cookie forms** (`clearSessionCookies`), as `/api/auth/slo` already did.
+- **Idle sign-out after 30 minutes**, with a warning and countdown for the last 5 (`utils/idle.ts`, `IdleWarning.vue`). It signs out of Drive and B2C, then lands on `https://www.joliro.org/login?signedOut=idle`. Last activity is shared across tabs in localStorage. A browser that restores the session is signed out before anything is drawn. The server sets `drive_new_session` at each real sign-in so a fresh login isn't mistaken for a stale one.
+- **Quick Exit** button (red, next to Privacy screen). It blanks the page, signs out with a beacon, clears local traces, then `location.replace("https://www.cnn.com")`, the same as the hub (`utils/quickExit.ts`).
+- **Local traces removed on every sign-out path**: `displayPreferences`, `sharepass:*` and the last-activity time (`clearLocalTraces`, mirrored in the `/api/auth/slo` page). Share passwords now live in sessionStorage. `viewModeHistory` is no longer written; nothing ever read it.
+- **Privacy screen** now sits above toasts and the preview overlays, and hides the file name from the tab title while up.
+
+The hub's single logout must call Drive at `/api/auth/slo`. On 7 Oct the hub was pointed at `/slo.html` (a Chain-FS-FrontEnd path), which Drive serves as the app shell with `X-Frame-Options: DENY`. That was reverted 9 Oct in ACORN-LandingPage `src/lib/auth/single-logout.ts`.
+
+**Key files:** `backend/http/auth.go`, `backend/http/chainfs.go`, `frontend/src/utils/idle.ts` / `quickExit.ts` / `auth.js` / `slo.ts`, `frontend/src/components/IdleWarning.vue`, `frontend/src/views/bars/Default.vue`, `frontend/src/App.vue`
+
 ---
 
 ## Future Priorities

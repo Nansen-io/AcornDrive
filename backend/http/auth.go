@@ -142,6 +142,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (in
 	if passwordUser && enforcedOtp && missingOtp {
 		return http.StatusForbidden, errors.ErrNoTotpConfigured
 	}
+	markNewSession(w, r)
 	return printToken(w, r, d.user) // Pass the data object
 }
 
@@ -156,6 +157,89 @@ var sloFrameAncestors = []string{
 	"https://joliro.org",
 	"https://www.acorn.tools",
 	"https://acorn.tools",
+}
+
+// cookieHostFor returns the host the browser used, without a port, preferring
+// X-Forwarded-Host from the reverse proxy.
+func cookieHostFor(r *http.Request) string {
+	host := r.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = r.Host
+	}
+	cookieHost, _, err := net.SplitHostPort(host)
+	if err != nil {
+		return host // no port present
+	}
+	return cookieHost
+}
+
+// setSessionCookie sets Drive's session cookie in the one form every login path and renew
+// share: host-only, Path=BaseURL, SameSite=Lax, and no Expires or Max-Age, so it ends when the
+// browser closes. The JWT inside still carries its own expiry.
+//
+// Until 9 Oct 2026 renew set a second, persistent copy with Domain=host that outlived closing
+// the browser, so Drive was still signed in when it was reopened. Because the browser sends
+// the older copy first, the server also kept reading the pre-renew token. That copy is deleted
+// here so anyone who still has it is moved onto the single session cookie.
+func setSessionCookie(w http.ResponseWriter, r *http.Request, value string) {
+	deleteLegacySessionCookie(w, r)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "filebrowser_quantum_jwt",
+		Value:    value,
+		Path:     config.Server.BaseURL,
+		HttpOnly: true,
+		Secure:   getScheme(r) == "https",
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// clearSessionCookies deletes both forms the session cookie may exist in. A deletion only
+// matches on Name+Path+Domain, so deleting one form would leave the other signed in.
+func clearSessionCookies(w http.ResponseWriter, r *http.Request) {
+	deleteLegacySessionCookie(w, r)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "filebrowser_quantum_jwt",
+		Value:    "",
+		Path:     config.Server.BaseURL,
+		HttpOnly: true,
+		Secure:   getScheme(r) == "https",
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+	})
+}
+
+// deleteLegacySessionCookie deletes the Path=/, Domain=host, SameSite=Strict copy that renew
+// and password login set before 9 Oct 2026.
+func deleteLegacySessionCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "filebrowser_quantum_jwt",
+		Value:    "",
+		Domain:   cookieHostFor(r),
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   getScheme(r) == "https",
+		SameSite: http.SameSiteStrictMode,
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+	})
+}
+
+// markNewSession tells the frontend's idle timer (frontend/src/utils/idle.ts) that this is a
+// fresh sign-in. The timer keeps the time of last activity in localStorage so that a browser
+// which restores this session cookie on reopening is still signed out after thirty idle
+// minutes. Without this marker, a fresh sign-in after an earlier session was left open would
+// read that old time and be signed straight back out. Readable by script on purpose; it
+// carries no secret, and the frontend deletes it on first read.
+func markNewSession(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "drive_new_session",
+		Value:    "1",
+		Path:     config.Server.BaseURL,
+		MaxAge:   300,
+		Secure:   getScheme(r) == "https",
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // logoutHandler handles user logout
@@ -192,39 +276,7 @@ var sloFrameAncestors = []string{
 // the hub. Nothing is weakened by doing so: an attacker who frames this page can only
 // sign their victim out.
 func sloHandler(w http.ResponseWriter, r *http.Request, _ *requestContext) (int, error) {
-	host := r.Header.Get("X-Forwarded-Host")
-	if host == "" {
-		host = r.Host
-	}
-	cookieHost, _, err := net.SplitHostPort(host)
-	if err != nil {
-		cookieHost = host // no port present
-	}
-	secure := getScheme(r) == "https"
-
-	// Password/proxy login sets Path=/, Domain=host, SameSite=Strict.
-	http.SetCookie(w, &http.Cookie{
-		Name:     "filebrowser_quantum_jwt",
-		Value:    "",
-		Domain:   cookieHost,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteStrictMode,
-		Expires:  time.Unix(0, 0),
-		MaxAge:   -1,
-	})
-	// ChainFS/Azure (acorn.tools) login sets Path=BaseURL, no Domain, SameSite=Lax.
-	http.SetCookie(w, &http.Cookie{
-		Name:     "filebrowser_quantum_jwt",
-		Value:    "",
-		Path:     config.Server.BaseURL,
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Unix(0, 0),
-		MaxAge:   -1,
-	})
+	clearSessionCookies(w, r)
 
 	w.Header().Set("Cache-Control", "no-store")
 
@@ -262,6 +314,18 @@ func sloHandler(w http.ResponseWriter, r *http.Request, _ *requestContext) (int,
 <p style="margin:0;font-size:1rem;max-width:28rem;line-height:1.5">Joliro Drive is closed in this browser. You can close this tab.</p>
 <script nonce="` + nonce + `">
 (function () {
+  // Same origin as Drive, so this can remove what Drive leaves in localStorage even when no
+  // Drive tab is open. Keep in step with clearLocalTraces in frontend/src/utils/auth.js.
+  try {
+    ["displayPreferences", "viewModeHistory", "joliro-drive-last-activity"].forEach(function (k) {
+      localStorage.removeItem(k);
+    });
+    Object.keys(localStorage).forEach(function (k) {
+      if (k.indexOf("sharepass:") === 0) localStorage.removeItem(k);
+    });
+  } catch (e) {
+    // Storage blocked. The cookie is gone regardless.
+  }
   try {
     var channel = new BroadcastChannel("joliro-slo");
     channel.postMessage({ type: "signed-out", app: "drive" });
@@ -333,28 +397,12 @@ func chainFsEndSessionUrl(r *http.Request, host string) string {
 func logoutHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (int, error) {
 	defer auth.RevokeAPIKey(d.token)
 
-	// Clear the authentication cookie by setting it to expire in the past
-	// Get the correct domain for cookie - prefer X-Forwarded-Host from reverse proxy
+	clearSessionCookies(w, r)
+
 	host := r.Header.Get("X-Forwarded-Host")
 	if host == "" {
 		host = r.Host
 	}
-	cookieHost, _, err := net.SplitHostPort(host)
-	if err != nil {
-		cookieHost = host // no port present
-	}
-	cookie := &http.Cookie{
-		Name:     "filebrowser_quantum_jwt",
-		Value:    "",
-		Domain:   cookieHost,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   getScheme(r) == "https",
-		SameSite: http.SameSiteStrictMode,
-		Expires:  time.Unix(0, 0), // Expire immediately
-		MaxAge:   -1,              // Delete cookie
-	}
-	http.SetCookie(w, cookie)
 
 	logoutUrl := fmt.Sprintf("%vlogin", config.Server.BaseURL) // Default fallback
 	switch {
@@ -382,7 +430,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (i
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(response)
+	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -467,31 +515,7 @@ func printToken(w http.ResponseWriter, r *http.Request, user *users.User) (int, 
 		return 401, errors.ErrUnauthorized
 	}
 
-	// Add 30 minutes buffer so expired token doesn't get automatically deleted by the browser
-	// This allows backend to identify expired sessions and provide better user feedback
-	expiresTime := time.Now().Add(expires).Add(time.Minute * 30)
-
-	// Set the authentication token as an HTTP cookie
-	// Get the correct domain for cookie - prefer X-Forwarded-Host from reverse proxy
-	host := r.Header.Get("X-Forwarded-Host")
-	if host == "" {
-		host = r.Host
-	}
-	loginCookieHost, _, err := net.SplitHostPort(host)
-	if err != nil {
-		loginCookieHost = host // no port present
-	}
-	cookie := &http.Cookie{
-		Name:     "filebrowser_quantum_jwt",
-		Value:    signed.Key,
-		Domain:   loginCookieHost,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   getScheme(r) == "https",
-		SameSite: http.SameSiteStrictMode,
-		Expires:  expiresTime,
-	}
-	http.SetCookie(w, cookie)
+	setSessionCookie(w, r, signed.Key)
 
 	// Still return token in body for backward compatibility and state management
 	w.Header().Set("Content-Type", "text/plain")

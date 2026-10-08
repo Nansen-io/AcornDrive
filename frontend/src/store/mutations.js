@@ -632,7 +632,6 @@ export const mutations = {
       state.viewModeHistory[source] = {};
     }
     state.viewModeHistory[source][path] = viewMode;
-    localStorage.setItem("viewModeHistory", JSON.stringify(state.viewModeHistory));
     emitStateChanged();
   },
   updateDisplayPreferences: (payload) => {

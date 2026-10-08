@@ -247,14 +247,15 @@ export default {
       // Check for password requirement (applies to both regular and upload shares)
       if (shareInfo.hasPassword) {
         if (this.sharePassword === "") {
-          this.sharePassword = localStorage.getItem("sharepass:" + this.shareHash);
+          this.sharePassword = sessionStorage.getItem("sharepass:" + this.shareHash);
           if (this.sharePassword === null || this.sharePassword === "") {
             this.showPasswordPrompt();
             return;
           }
         }
-        // Store password in localStorage
-        localStorage.setItem("sharepass:" + this.shareHash, this.sharePassword);
+        // sessionStorage, not localStorage: a share password in plain text must not outlive
+        // the tab on a machine that may not be the person's own.
+        sessionStorage.setItem("sharepass:" + this.shareHash, this.sharePassword);
       }
       
       if (shareInfo.themeColor) {

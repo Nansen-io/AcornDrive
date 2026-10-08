@@ -76,6 +76,21 @@
         </svg>
         <span>{{ $t('buttons.privacyScreen') }}</span>
       </button>
+      <!-- Quick Exit — same format and destination as the hub's. See utils/quickExit.ts. -->
+      <button
+        type="button"
+        class="privacy-pill quick-exit-pill"
+        :title="$t('buttons.quickExit')"
+        @click="quickExit"
+      >
+        <svg class="privacy-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" x2="9" y1="12" y2="12" />
+        </svg>
+        <span>{{ $t('buttons.quickExit') }}</span>
+      </button>
     </div>
   </header>
 </template>
@@ -89,6 +104,7 @@ import Action from "@/components/Action.vue";
 import Search from "@/components/Search.vue";
 import { globalVars } from "@/utils/constants";
 import { url } from "@/utils";
+import { quickExit } from "@/utils/quickExit";
 
 export default {
   name: "UnifiedHeader",
@@ -235,6 +251,7 @@ export default {
       mutations.closeHovers();
       mutations.setPrivacyScreen(true);
     },
+    quickExit,
     multiAction() {
       const cv = getters.currentView();
 
@@ -360,6 +377,21 @@ export default {
   width: 1em;
   height: 1em;
   flex-shrink: 0;
+}
+
+/* Quick Exit — the hub's red button. */
+.quick-exit-pill {
+  background: #ef4444;
+  border-color: #dc2626;
+}
+.quick-exit-pill,
+.quick-exit-pill *,
+.quick-exit-pill:hover,
+.quick-exit-pill:hover * {
+  color: #ffffff !important;
+}
+.quick-exit-pill:hover {
+  background: #dc2626;
 }
 
 /* joliroDrive wordmark, knocked out to white to read on the teal header. */

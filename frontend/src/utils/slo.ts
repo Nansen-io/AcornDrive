@@ -19,6 +19,8 @@
 // standing in front of the screen. If the message never arrives, or the browser refuses
 // window.close(), the session is over regardless.
 
+import { clearLocalTraces } from "@/utils/auth";
+
 const CHANNEL_NAME = "joliro-slo";
 
 let handled = false;
@@ -34,7 +36,7 @@ let handled = false;
 const HEADING = "You have been signed out";
 const BODY = "Joliro Drive is closed in this browser. You can close this tab.";
 
-function clearTheScreen(): void {
+export function clearTheScreen(): void {
   // Cover the page before attempting to close it, not after. window.close() is allowed to
   // fail, and if it does, whatever was on screen -- folder names, file names -- would stay
   // there. Clearing first means the worst case is a blank, calm tab rather than a listing
@@ -83,6 +85,7 @@ function onSignedOut(): void {
   handled = true;
 
   clearTheScreen();
+  clearLocalTraces();
 
   // window.close() only works on a tab that a script opened, which is how the hub opens
   // tiles. A tab the person opened themselves, from a bookmark or by typing the address,

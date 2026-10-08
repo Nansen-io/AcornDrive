@@ -61,7 +61,36 @@ export function generateRandomCode(length) {
   return code;
 }
 
+// localStorage key for the idle timer's last-activity time. See utils/idle.ts.
+export const LAST_ACTIVITY_KEY = "joliro-drive-last-activity";
+
+// Removes what Drive leaves in this browser that names folders, holds share passwords or dates
+// the last use: display preferences and view modes keyed by folder path, share passwords, and
+// the idle timer's last-activity time. Called on every sign-out path: logout, the idle sign-out
+// (utils/idle.ts) and the hub's single logout (utils/slo.ts, plus the page /api/auth/slo serves,
+// which covers the case where no Drive tab is open and must be kept in step with this list).
+export function clearLocalTraces() {
+  for (const getStore of [() => localStorage, () => sessionStorage]) {
+    try {
+      const store = getStore();
+      for (const key of Object.keys(store)) {
+        if (
+          key === "displayPreferences" ||
+          key === "viewModeHistory" ||
+          key === LAST_ACTIVITY_KEY ||
+          key.startsWith("sharepass:")
+        ) {
+          store.removeItem(key);
+        }
+      }
+    } catch (e) {
+      // Storage blocked. Nothing was stored there either.
+    }
+  }
+}
+
 export async function logout() {
+  clearLocalTraces();
   try {
     const res = await fetch(getApiPath("api/auth/logout"), {
       method: "POST",
@@ -70,16 +99,14 @@ export async function logout() {
     if (res.ok) {
       const data = await res.json();
       let logoutUrl = data.logoutUrl;
-      // Backend clears the cookie, but frontend does it as fail-safe cleanup
-      document.cookie = "filebrowser_quantum_jwt=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/";
       mutations.setCurrentUser(null);
       // No need to clear state.jwt - cookie is the source of truth
       if (!logoutUrl) {
         logoutUrl = globalVars.baseURL+"login";
       }
-      // The Drive session is already over at this point: the server deleted the cookie above
-      // and the fail-safe deletion has run. What is left is where to leave the person, and
-      // that depends on how they got here.
+      // The Drive session is already over at this point: the server revoked the token and
+      // deleted the cookie. What is left is where to leave the person, and that depends on how
+      // they got here.
       //
       // If the Joliro hub opened this tab, closing it puts them back on the hub, still signed
       // in, one click from opening Drive again. Leaving them on a login screen in a second tab

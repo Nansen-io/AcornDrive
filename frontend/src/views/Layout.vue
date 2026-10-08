@@ -25,6 +25,7 @@
     </div>
   </transition>
   <StatusBar :class="{ moveWithSidebar: moveWithSidebar }" />
+  <IdleWarning v-if="isLoggedIn" />
   <ContextMenu v-if="showContextMenu"></ContextMenu>
   <Tooltip />
   <NextPrevious />
@@ -43,10 +44,12 @@ import Scrollbar from "@/components/files/Scrollbar.vue";
 import Tooltip from "@/components/Tooltip.vue";
 import NextPrevious from "@/components/files/nextPrevious.vue";
 import PopupPreview from "@/components/files/PopupPreview.vue";
+import IdleWarning from "@/components/IdleWarning.vue";
 import { filesApi } from "@/api";
 import { state, getters, mutations } from "@/store";
 import { events, notify } from "@/notify";
 import { generateRandomCode } from "@/utils/auth";
+import { startIdleTimer } from "@/utils/idle";
 
 export default {
   name: "layout",
@@ -62,6 +65,7 @@ export default {
     Tooltip,
     NextPrevious,
     PopupPreview,
+    IdleWarning,
   },
   data() {
     return {
@@ -199,6 +203,7 @@ export default {
     },
     async initialize() {
       if (getters.isLoggedIn()) {
+        startIdleTimer();
         const sourceinfo = await filesApi.sources();
         mutations.updateSourceInfo(sourceinfo);
         if (state.user.permissions.realtime) {

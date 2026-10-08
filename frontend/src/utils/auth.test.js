@@ -30,7 +30,7 @@ vi.mock("@/utils/url.js", () => ({
   getPublicApiPath: (p) => "/" + p,
 }));
 
-const { logout } = await import("@/utils/auth.js");
+const { logout, clearLocalTraces } = await import("@/utils/auth.js");
 
 const B2C_SIGN_OUT =
   "https://nansenprod.b2clogin.com/nansenprod.onmicrosoft.com/B2C_1_signup_signin/oauth2/v2.0/logout";
@@ -126,5 +126,25 @@ describe("logout", () => {
     // Without this the fallback would navigate to undefined and the person would be left on a
     // broken page after their session had already ended.
     expect(assignedHref).toBe("/login");
+  });
+});
+
+describe("clearLocalTraces", () => {
+  it("removes folder paths, share passwords and the last-activity time, and nothing else", () => {
+    localStorage.setItem("displayPreferences", "{}");
+    localStorage.setItem("viewModeHistory", "{}");
+    localStorage.setItem("joliro-drive-last-activity", "1");
+    localStorage.setItem("sharepass:abc", "secret");
+    sessionStorage.setItem("sharepass:def", "secret");
+    localStorage.setItem("userLocale", "en");
+
+    clearLocalTraces();
+
+    expect(localStorage.getItem("displayPreferences")).toBeNull();
+    expect(localStorage.getItem("viewModeHistory")).toBeNull();
+    expect(localStorage.getItem("joliro-drive-last-activity")).toBeNull();
+    expect(localStorage.getItem("sharepass:abc")).toBeNull();
+    expect(sessionStorage.getItem("sharepass:def")).toBeNull();
+    expect(localStorage.getItem("userLocale")).toBe("en");
   });
 });
