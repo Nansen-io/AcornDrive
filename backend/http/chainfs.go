@@ -1020,6 +1020,7 @@ func markSsoJtiUsed(jti string, exp int64) error {
 // @Tags Auth
 // @Param token query string true "Signed SSO token"
 // @Param next  query string false "Redirect path after login"
+// @Param locale query string false "The hub's interface language (e.g. it, pl, uk, ro, nl, el)"
 // @Success 302 {string} string "Redirect to next path"
 // @Router /api/auth/sso [get]
 func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext) (int, error) {
@@ -1077,6 +1078,11 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 	// from the B2C token, which lacks preferred_username/email for this tenant).
 	username := payload.AzureSub
 
+	// The hub's language, if it sent one, so Drive opens in the language the person chose there.
+	// It is not part of the signed token: it can only pick one of Drive's own locales, and an
+	// unknown or missing code leaves the stored preference alone.
+	locale := driveLocaleFromPortal(r.URL.Query().Get("locale"))
+
 	// NOTE: SSO users have no per-user ChainFS credentials, and cannot be given any.
 	//
 	// The SSO handover carries no ChainFS credentials, and cannot: the hub authenticates with B2C
@@ -1117,6 +1123,9 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 			AzureTokenExpiry:  azureTokenExpiry,
 		}
 		settings.ApplyUserDefaults(newUser)
+		if locale != "" {
+			newUser.Locale = locale
+		}
 		if isAdmin {
 			newUser.Permissions.Admin = true
 		}
@@ -1151,6 +1160,10 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 			user.Permissions.Admin = true
 		}
 		updateFields := []string{"ChainFSSubscribed", "LoginMethod", "Permissions", "DisplayName", "AzureSub"}
+		if locale != "" && user.Locale != locale {
+			user.Locale = locale
+			updateFields = append(updateFields, "Locale")
+		}
 		// Only overwrite stored ChainFS credentials when the hub actually returned a fresh token.
 		// A transient fetch failure must not wipe a token that is still valid.
 		if encryptedAccess != "" {

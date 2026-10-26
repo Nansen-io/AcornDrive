@@ -14,6 +14,7 @@ import is from './is.json';
 import it from './it.json';
 import ja from './ja.json';
 import ko from './ko.json';
+import nl from './nl.json';
 import nlBE from './nl-be.json';
 import pl from './pl.json';
 import pt from './pt.json';
@@ -69,10 +70,11 @@ export function detectLocale(): string {
     'cz': 'cz',
     'sk': 'sk',
     'tr': 'tr',
-    'uk': 'uk',
+    'uk': 'ua', // Ukrainian: the browser says uk, the messages are keyed ua
     'sv-se': 'svSE',
     'sv': 'svSE',
-    'nl-be': 'nlBE',
+    'nl-be': 'nlBE', // before 'nl': the first prefix match wins
+    'nl': 'nl',
   };
 
   for (const key in localeMap) {
@@ -119,6 +121,7 @@ const i18n = createI18n({
     it,
     ja,
     ko,
+    nl,
     nlBE,
     pl,
     ptBR,

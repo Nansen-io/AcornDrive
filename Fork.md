@@ -92,6 +92,14 @@ The hub's single logout must call Drive at `/api/auth/slo`. On 7 Oct the hub was
 
 **Key files:** `backend/http/auth.go`, `backend/http/chainfs.go`, `frontend/src/utils/idle.ts` / `quickExit.ts` / `auth.js` / `slo.ts`, `frontend/src/components/IdleWarning.vue`, `frontend/src/views/bars/Default.vue`, `frontend/src/App.vue`
 
+### 6. Italian, Polish, Ukrainian, Romanian, Dutch, Greek (2026-10-27)
+
+The joliro suite languages. Upstream shipped files for all six, but none had the strings this fork added to `en.json` (SAFEMode, Quick Exit, the idle warning, the share password, protection periods), and 13 upstream keys whose English joliro reworded (`general.logout` is "Close Drive", `share.normalShare` is "Download", `files.newFile` is "New note") still carried the old meaning.
+- **Complete:** `it`, `pl`, `ua`, `ro`, `el` and a new `nl` (Netherlands Dutch, derived from `nl-be` with Belgian forms and machine-translation errors fixed) have every `en.json` key. `nl-be` got the same Dutch strings. `src/i18n/locales.test.js` fails if any of the six loses a key, blanks one or drops a `{placeholder}`.
+- **Selectable:** Greek was registered but missing from the picker (`Languages.vue`); `nl` is added. A browser set to `uk` used to get `uk`, which has no messages; it now maps to `ua`.
+- **From the hub:** `/api/auth/sso` takes an optional `locale` (BCP 47, e.g. `it`, `pl`, `uk`, `ro`, `nl`, `el`) and stores it as the user's language, mapped by `driveLocaleFromPortal` (`backend/http/locale.go`). An unknown code is ignored. The hub does not send it yet.
+- **Fonts:** the Roboto files were Latin-1 only, so Polish and Romanian letters, Cyrillic and Greek fell back to the system font. `public/fonts/roboto-{normal,medium,bold}-{latin-ext,cyrillic,greek}.woff2` (from `@fontsource/roboto` 5.1.0) now serve those unicode ranges.
+
 ---
 
 ## Future Priorities
