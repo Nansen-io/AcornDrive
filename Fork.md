@@ -103,12 +103,12 @@ The joliro suite languages. Upstream shipped files for all six, but none had the
 ### 7. Security review & hardening (2026-11-01, v2.0.0.0)
 
 Full static security review of the backend, frontend and the sibling `ACORN-LandingPage`
-(Vercel + Supabase). Findings, remediation status and an authorized self-test plan live in
-`SECURITY_REVIEW.md`. Fixes shipped: revoked tokens now rejected on read endpoints
-(`middleware.go`), SSO/login open redirects closed (`chainfs.go`, `Login.vue`), and the Azure
-token encryption key is HKDF-derived separately from the JWT signing key with a
-backward-compatible decrypt fallback (`chainfs.go`, `chainfs_crypto_test.go`). App version set
-to `2.0.0.0` (`backend/common/version/version.go`).
+(Vercel + Supabase). The review document ("joliroDrive — Code Security Review") is held in the
+ISO & Compliance repository under `Security-Reviews/` (doc ID `ACN-SEC-DRIVE`), not in this repo.
+Fixes shipped: revoked tokens now rejected on read endpoints (`middleware.go`), SSO/login open
+redirects closed (`chainfs.go`, `Login.vue`), and the Azure token encryption key is HKDF-derived
+separately from the JWT signing key with a backward-compatible decrypt fallback (`chainfs.go`,
+`chainfs_crypto_test.go`). App version set to `2.0.0.0` (`backend/common/version/version.go`).
 
 ---
 
