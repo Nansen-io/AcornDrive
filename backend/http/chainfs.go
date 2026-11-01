@@ -1068,11 +1068,11 @@ func chainfsSSOHandler(w http.ResponseWriter, r *http.Request, d *requestContext
 		return 0, nil
 	}
 
-	// Determine next path (relative paths only).
-	next := r.URL.Query().Get("next")
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
-		next = "/"
-	}
+	// Determine next path (local, same-origin paths only). sanitizeLocalRedirect rejects
+	// protocol-relative ("//"), backslash-prefixed ("/\") and absolute/scheme-bearing values,
+	// closing the open redirect the previous inline "//"-only check missed (e.g. next=/\evil.com,
+	// which browsers normalize to //evil.com).
+	next := sanitizeLocalRedirect(r.URL.Query().Get("next"))
 
 	// Drive usernames are the Azure sub GUID (matching what extractUsername returns
 	// from the B2C token, which lacks preferred_username/email for this tenant).
