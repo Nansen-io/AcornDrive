@@ -328,6 +328,18 @@ export default {
       if (redirect === "" || redirect === undefined || redirect === null) {
         redirect = "/files/";
       }
+      // Only allow local, same-origin paths. Reject non-strings (e.g. a repeated
+      // ?redirect= arrives as an array), protocol-relative ("//"), backslash-prefixed
+      // ("/\") and absolute/scheme-bearing values so a crafted redirect cannot bounce
+      // the user off-site after login.
+      if (
+        typeof redirect !== "string" ||
+        !redirect.startsWith("/") ||
+        redirect.startsWith("//") ||
+        redirect.startsWith("/\\")
+      ) {
+        redirect = "/files/";
+      }
 
       let captcha = "";
       if (globalVars.recaptcha) {
