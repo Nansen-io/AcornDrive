@@ -100,6 +100,16 @@ The joliro suite languages. Upstream shipped files for all six, but none had the
 - **From the hub:** `/api/auth/sso` takes an optional `locale` (BCP 47, e.g. `it`, `pl`, `uk`, `ro`, `nl`, `el`) and stores it as the user's language, mapped by `driveLocaleFromPortal` (`backend/http/locale.go`). An unknown code is ignored. The hub does not send it yet.
 - **Fonts:** the Roboto files were Latin-1 only, so Polish and Romanian letters, Cyrillic and Greek fell back to the system font. `public/fonts/roboto-{normal,medium,bold}-{latin-ext,cyrillic,greek}.woff2` (from `@fontsource/roboto` 5.1.0) now serve those unicode ranges.
 
+### 7. Security review & hardening (2026-11-01, v2.0.0.0)
+
+Full static security review of the backend, frontend and the sibling `ACORN-LandingPage`
+(Vercel + Supabase). Findings, remediation status and an authorized self-test plan live in
+`SECURITY_REVIEW.md`. Fixes shipped: revoked tokens now rejected on read endpoints
+(`middleware.go`), SSO/login open redirects closed (`chainfs.go`, `Login.vue`), and the Azure
+token encryption key is HKDF-derived separately from the JWT signing key with a
+backward-compatible decrypt fallback (`chainfs.go`, `chainfs_crypto_test.go`). App version set
+to `2.0.0.0` (`backend/common/version/version.go`).
+
 ---
 
 ## Future Priorities
