@@ -21,6 +21,7 @@ import (
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/crypto/hkdf"
 	"github.com/gtsteffaniak/filebrowser/backend/adapters/fs/files"
 	"github.com/gtsteffaniak/filebrowser/backend/chainfs"
 	"github.com/gtsteffaniak/filebrowser/backend/common/settings"
@@ -816,65 +817,89 @@ func extractGroups(claims map[string]interface{}, claimName string) []string {
 	return []string{}
 }
 
-// deriveEncryptionKey derives a 32-byte AES key from the configured auth key using SHA-256.
-func deriveEncryptionKey() []byte {
+// tokenEncryptionInfo is the HKDF info label that binds the token-encryption key to that
+// single purpose, so it is not the same bytes as the JWT signing key (settings.Config.Auth.Key)
+// or any other key derived from it.
+const tokenEncryptionInfo = "acorndrive:azure-token-encryption:v1"
+
+// legacyEncryptionKey is the original 32-byte AES key — a bare SHA-256 of the auth key, the
+// same bytes used for JWT signing. Retained only so Azure tokens encrypted before key
+// separation can still be decrypted; they are re-encrypted with the HKDF key on next login.
+func legacyEncryptionKey() []byte {
 	h := sha256.Sum256([]byte(settings.Config.Auth.Key))
 	return h[:]
 }
 
-// encryptToken encrypts a token using AES-GCM
-func encryptToken(token string) (string, error) {
-	key := deriveEncryptionKey()
+// deriveSubKey derives a 32-byte, purpose-separated AES key from the configured auth key
+// using HKDF-SHA256. The auth key is the input keying material; info binds the output to one
+// purpose so a leak of one derived key does not reveal the others or the signing key.
+func deriveSubKey(info string) []byte {
+	r := hkdf.New(sha256.New, []byte(settings.Config.Auth.Key), nil, []byte(info))
+	key := make([]byte, 32)
+	if _, err := io.ReadFull(r, key); err != nil {
+		// HKDF over a non-empty key does not fail in practice; fall back to the legacy key
+		// rather than return an unusable all-zero key.
+		return legacyEncryptionKey()
+	}
+	return key
+}
 
+// encryptToken encrypts a token using AES-GCM under the purpose-separated HKDF key.
+func encryptToken(token string) (string, error) {
+	return aesGcmSeal(deriveSubKey(tokenEncryptionInfo), token)
+}
+
+// decryptToken decrypts a token using AES-GCM. It first tries the purpose-separated HKDF key,
+// then falls back to the legacy bare-SHA-256 key so tokens stored before key separation
+// remain readable (and are re-encrypted with the HKDF key on the next login).
+func decryptToken(encryptedToken string) (string, error) {
+	if plaintext, err := aesGcmOpen(deriveSubKey(tokenEncryptionInfo), encryptedToken); err == nil {
+		return plaintext, nil
+	}
+	return aesGcmOpen(legacyEncryptionKey(), encryptedToken)
+}
+
+// aesGcmSeal encrypts plaintext with AES-GCM under key and returns base64(nonce || ciphertext).
+func aesGcmSeal(key []byte, plaintext string) (string, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
 	}
-
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return "", err
 	}
-
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", err
 	}
-
-	ciphertext := gcm.Seal(nonce, nonce, []byte(token), nil)
+	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-// decryptToken decrypts a token using AES-GCM
-func decryptToken(encryptedToken string) (string, error) {
-	key := deriveEncryptionKey()
-
+// aesGcmOpen reverses aesGcmSeal: it decodes base64(nonce || ciphertext) and decrypts under key.
+func aesGcmOpen(key []byte, encryptedToken string) (string, error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode ciphertext: %w", err)
 	}
-
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
 	}
-
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return "", err
 	}
-
 	nonceSize := gcm.NonceSize()
 	if len(ciphertext) < nonceSize {
 		return "", fmt.Errorf("ciphertext too short")
 	}
-
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt token: %w", err)
 	}
-
 	return string(plaintext), nil
 }
 
