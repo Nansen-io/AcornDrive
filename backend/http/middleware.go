@@ -183,6 +183,15 @@ func extractUserFromExpiredToken(r *http.Request, data *requestContext) *users.U
 		return nil
 	}
 
+	// A token that has been explicitly revoked (e.g. on logout, which calls
+	// auth.RevokeAPIKey) must not be honored here either. Without this check a
+	// logged-out session's still-unexpired JWT would keep being accepted on every
+	// withOrWithoutUser read endpoint (file listing, raw, preview) until it expired,
+	// because withUserHelper rejects it but this fallback would re-admit it.
+	if auth.IsRevokedApiKey(data.token) {
+		return nil
+	}
+
 	// Token is valid (but might be expired or revoked)
 	// Try to get the user regardless of expiration status
 	user, err := store.Users.Get(tk.BelongsTo)
