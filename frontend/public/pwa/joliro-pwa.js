@@ -45,14 +45,16 @@
     app: attr('data-app', 'app'),
     name: attr('data-name', document.title || 'App'),
     neutralName: attr('data-neutral-name', 'Notes'),
-    hub: attr('data-hub', 'https://www.joliro.org').replace(/\/+$/, ''),
+    // "self" = this origin is the hub (the hub itself, and its preview deployments).
+    hub: (attr('data-hub', 'https://www.joliro.org') === 'self' ? location.origin : attr('data-hub', 'https://www.joliro.org')).replace(/\/+$/, ''),
     push: attr('data-push', 'off') === 'on',
     ui: attr('data-ui', 'on') !== 'off',
     variant: attr('data-variant', 'standard'),
     sw: attr('data-sw', '/sw.js'),
     startPage: attr('data-start', '/pwa/start.html'),
     home: attr('data-home', '/'),
-    guideBase: attr('data-guide', '/pwa/ios/')
+    guideBase: attr('data-guide', '/pwa/ios/'),
+    swMode: attr('data-sw-mode', 'installed')
   };
 
   var S = {
@@ -78,6 +80,9 @@
     iosStep3: 'Scroll down and tap Add to Home Screen. You may need to tap View More first.',
     iosStep4: 'Keep Open as Web App switched on, then tap Add.',
     iosChrome: 'Using Chrome? Tap Share in the address bar, then Add to Home Screen.',
+    androidTitle: 'Install the app',
+    androidChrome: 'In Chrome, tap the ⋮ menu at the top right, then Install app or Add to Home screen.',
+    androidSamsung: 'In Samsung Internet, tap the ≡ menu at the bottom right, then Add page to, then Home screen.',
     notifyOn: 'Notifications are on.',
     notifyDenied: 'Notifications are turned off for this app in your phone settings.',
     notifyInstallFirst: 'Add the app to your Home Screen first, then turn notifications on from there.',
@@ -92,6 +97,14 @@
 
   var ua = navigator.userAgent || '';
   var isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/.test(ua);
+  var isSamsung = /SamsungBrowser/.test(ua);
+
+  // Inside another site's frame (e.g. the Digital Safeguard Centre embedding Risk):
+  // no install UI and no service worker. Only the sign-out listener runs.
+  var framed = false;
+  try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  if (framed) cfg.ui = false;
   function isStandalone() {
     return navigator.standalone === true ||
       (window.matchMedia && (window.matchMedia('(display-mode: standalone)').matches ||
@@ -139,11 +152,31 @@
 
   // ---- Service worker --------------------------------------------------------
 
+  // Registered only where it is wanted. In an ordinary browser tab a service worker
+  // and its Cache Storage are a lasting record, on a shared or checked device, that
+  // the site was visited. So by default (data-sw-mode="installed") the worker is
+  // registered only:
+  //   - inside the installed app (standalone),
+  //   - when the person taps Install or turns notifications on, or
+  //   - when this origin already has one (keeps it updated).
+  // data-sw-mode="always" registers on every page load instead.
   var swReady = null;
-  if ('serviceWorker' in navigator) {
-    swReady = navigator.serviceWorker.register(cfg.sw, { scope: '/' })
-      .then(function () { return navigator.serviceWorker.ready; })
-      .catch(function () { return null; });
+  var swSupported = 'serviceWorker' in navigator && !framed;
+  function ensureSW() {
+    if (!swSupported) return Promise.resolve(null);
+    if (!swReady) {
+      swReady = navigator.serviceWorker.register(cfg.sw, { scope: '/' })
+        .then(function () { return navigator.serviceWorker.ready; })
+        .catch(function () { return null; });
+    }
+    return swReady;
+  }
+  if (swSupported) {
+    if (cfg.swMode === 'always' || isStandalone()) {
+      ensureSW();
+    } else {
+      navigator.serviceWorker.getRegistration('/').then(function (reg) { if (reg) ensureSW(); }).catch(function () {});
+    }
   }
 
   // ---- Install ---------------------------------------------------------------
@@ -161,11 +194,12 @@
   });
 
   function canInstall() {
-    if (isStandalone()) return false;
-    return !!deferredPrompt || isIOS;
+    if (isStandalone() || framed) return false;
+    return !!deferredPrompt || isIOS || isAndroid;
   }
 
   function promptInstall() {
+    ensureSW();
     if (deferredPrompt) {
       var p = deferredPrompt;
       deferredPrompt = null;
@@ -174,6 +208,9 @@
         .catch(function () { closePanel(); render(); });
     }
     if (isIOS) { openIOSGuide(); return Promise.resolve('guide'); }
+    // Android without a captured prompt (Samsung Internet, Firefox, or Chrome before
+    // it decides to offer one): the browser menu always has the install item.
+    if (isAndroid) { openAndroidGuide(); return Promise.resolve('guide'); }
     return Promise.resolve('unavailable');
   }
 
@@ -217,9 +254,11 @@
     if (!pushSupported) {
       return Promise.resolve({ ok: false, reason: isIOS && !isStandalone() ? 'install-first' : 'unsupported' });
     }
-    return Promise.resolve(Notification.requestPermission()).then(function (perm) {
+    var permission = Notification.requestPermission();
+    ensureSW();
+    return Promise.resolve(permission).then(function (perm) {
       if (perm !== 'granted') return { ok: false, reason: perm === 'denied' ? 'denied' : 'dismissed' };
-      return Promise.all([swReady, loadVapidKey()]).then(function (r) {
+      return Promise.all([ensureSW(), loadVapidKey()]).then(function (r) {
         var reg = r[0], key = r[1];
         if (!reg || !key) return { ok: false, reason: 'unavailable' };
         return reg.pushManager.getSubscription()
@@ -407,6 +446,17 @@
     });
   }
 
+  function openAndroidGuide() {
+    openPanel(S.androidTitle, function (box) {
+      box.appendChild(el('p', 'jpwa-text', isSamsung ? S.androidSamsung : S.androidChrome));
+      box.appendChild(el('p', 'jpwa-note', isSamsung ? S.androidChrome : S.androidSamsung));
+      box.appendChild(el('p', 'jpwa-note', S.signInAgain));
+      var row = el('div', 'jpwa-row');
+      row.appendChild(button(S.close, 'jpwa-primary', closePanel));
+      box.appendChild(row);
+    });
+  }
+
   function notifyMessage(result) {
     var key = result.ok ? 'notifyOn'
       : result.reason === 'denied' ? 'notifyDenied'
@@ -436,8 +486,16 @@
     return wrap;
   }
 
+  var renderId = 0;
+  function notifyChip() {
+    return makeChip(S.notifyChip, function () {
+      enableNotifications().then(function (r) { notifyMessage(r); if (r.ok) session('notify-dismissed', '1'); render(); });
+    }, 'notify-dismissed');
+  }
+
   function render() {
     if (!cfg.ui || !document.body) return;
+    var id = ++renderId;
     if (chip && chip.parentNode) chip.parentNode.removeChild(chip);
     chip = null;
 
@@ -448,11 +506,20 @@
 
     if (canInstall() && session('install-dismissed') !== '1' && !own.length) {
       chip = makeChip(S.installChip, openChooser, 'install-dismissed');
-    } else if (cfg.push && isStandalone() && pushSupported && Notification.permission === 'default' &&
+    } else if (cfg.push && isStandalone() && pushSupported && Notification.permission !== 'denied' &&
                session('notify-dismissed') !== '1') {
-      chip = makeChip(S.notifyChip, function () {
-        enableNotifications().then(function (r) { notifyMessage(r); if (r.ok) session('notify-dismissed', '1'); render(); });
-      }, 'notify-dismissed');
+      if (Notification.permission === 'default') {
+        chip = notifyChip();
+      } else {
+        // Permission granted but this device has no subscription — e.g. a sign-out
+        // unsubscribed it. Offer it again rather than leaving push off for good.
+        notificationState().then(function (state) {
+          if (state === 'off' && id === renderId && !chip && document.body) {
+            chip = notifyChip();
+            document.body.appendChild(chip);
+          }
+        });
+      }
     }
     if (chip) document.body.appendChild(chip);
   }

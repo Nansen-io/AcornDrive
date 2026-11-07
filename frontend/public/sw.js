@@ -82,18 +82,31 @@ function put(req, res) {
   caches.open(CACHE).then(function (c) { return c.put(req, copy); }).catch(function () {});
 }
 
+function precache() {
+  return caches.open(CACHE).then(function (cache) {
+    // Forgiving: a single missing file must not stop the worker installing
+    // (cache.addAll is all-or-nothing).
+    return Promise.all(CONFIG.precache.map(function (url) {
+      return fetch(url, { cache: 'no-cache', credentials: 'same-origin' })
+        .then(function (res) {
+          if (cacheable(res)) return cache.put(url, res);
+          // Not stored (e.g. served no-store): release the body, or over HTTP/1.1
+          // the unread responses hold connections open and install never finishes.
+          if (res && res.body && res.body.cancel) return res.body.cancel().catch(function () {});
+        })
+        .catch(function () {});
+    }));
+  });
+}
+
+// Sign-out deletes every cache, the offline page included. Put the shell back (it
+// holds nothing personal) the next time a page loads while online.
+function restoreShellIfCleared() {
+  return caches.match(CONFIG.offlineUrl).then(function (hit) { if (!hit) return precache(); }).catch(function () {});
+}
+
 self.addEventListener('install', function (event) {
-  event.waitUntil(
-    caches.open(CACHE).then(function (cache) {
-      // One at a time and forgiving: a single missing file must not stop the
-      // worker installing (cache.addAll is all-or-nothing).
-      return Promise.all(CONFIG.precache.map(function (url) {
-        return fetch(url, { cache: 'no-cache', credentials: 'same-origin' })
-          .then(function (res) { if (cacheable(res)) return cache.put(url, res); })
-          .catch(function () {});
-      }));
-    }).then(function () { return self.skipWaiting(); })
-  );
+  event.waitUntil(precache().then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function (event) {
@@ -119,7 +132,10 @@ self.addEventListener('fetch', function (event) {
   // and only when the network has failed.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(function () {
+      fetch(req).then(function (res) {
+        event.waitUntil(restoreShellIfCleared());
+        return res;
+      }).catch(function () {
         return caches.match(CONFIG.offlineUrl).then(function (r) {
           return r || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
         });
@@ -196,7 +212,9 @@ self.addEventListener('notificationclick', function (event) {
       for (var i = 0; i < wins.length; i++) {
         var w = wins[i];
         if (new URL(w.url).origin === self.location.origin && 'focus' in w) {
-          return w.focus().then(function (fw) { return fw && fw.navigate ? fw.navigate(target) : fw; });
+          return w.focus().then(function (fw) {
+            return fw && fw.navigate ? fw.navigate(target).catch(function () {}) : fw;
+          }).catch(function () {});
         }
       }
       return self.clients.openWindow ? self.clients.openWindow(target) : undefined;
