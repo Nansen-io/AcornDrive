@@ -89,8 +89,25 @@ export function clearLocalTraces() {
   }
 }
 
+// joliro PWA kit (public/pwa/joliro-pwa.js, loaded by index.html): unsubscribes this browser from
+// push, tells the hub, and deletes every Cache Storage cache. Resolves within 1.5 s and never
+// rejects. Called on every sign-out path: logout and idle sign-out await it before leaving the
+// page; Quick Exit fires it without waiting; the single-logout listener (utils/slo.ts) awaits it
+// before closing the tab (the kit also runs it by itself when it hears the same broadcast).
+export function pwaSignOutCleanup() {
+  try {
+    return Promise.resolve(
+      window.joliroPwa ? window.joliroPwa.signOutCleanup() : undefined,
+    ).catch(() => {});
+  } catch (e) {
+    return Promise.resolve();
+  }
+}
+
 export async function logout() {
   clearLocalTraces();
+  // Started now so it runs alongside the logout request; awaited before the tab is left.
+  const pwaCleanup = pwaSignOutCleanup();
   try {
     const res = await fetch(getApiPath("api/auth/logout"), {
       method: "POST",
@@ -126,6 +143,7 @@ export async function logout() {
       // behaviour.
       //
       // The refusal is silent, so the fallback has to be the timer rather than a catch.
+      await pwaCleanup;
       try {
         window.close();
       } catch (e) {

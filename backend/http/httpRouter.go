@@ -211,10 +211,15 @@ func StartHttp(ctx context.Context, storage *bolt.BoltStore, shutdownComplete ch
 	router.Handle(staticPrefix, http.HandlerFunc(staticAssetHandler))
 	publicRoutes.Handle("GET /static/", http.HandlerFunc(staticAssetHandler))
 
-	// Standard browser favicon and manifest routes
+	// Standard browser favicon route
 	router.HandleFunc("GET /favicon.svg", http.HandlerFunc(staticAssetHandler))
-	router.HandleFunc("GET /site.webmanifest", http.HandlerFunc(staticAssetHandler))
-	router.HandleFunc("GET /manifest.json", http.HandlerFunc(staticAssetHandler))
+
+	// joliro PWA kit: the one manifest, the one service worker (scope /) and /pwa/**, always at
+	// the site root and never behind auth. Replaces the old /site.webmanifest and /manifest.json
+	// routes and the blob: manifest index.html used to build. See pwa.go.
+	router.HandleFunc("GET /sw.js", pwaHandler)
+	router.HandleFunc("GET /manifest.webmanifest", pwaHandler)
+	router.HandleFunc("GET /pwa/", pwaHandler)
 
 	router.HandleFunc(config.Server.BaseURL, withOrWithoutUser(indexHandler))
 	router.HandleFunc(fmt.Sprintf("GET %vhealth", config.Server.BaseURL), healthHandler)

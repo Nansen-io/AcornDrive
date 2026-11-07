@@ -1,0 +1,166 @@
+/* joliro PWA client UI (joliro PWA kit v1). Everything is prefixed jpwa- so it
+   cannot collide with an app's own styles. Served as a file, not inline, so it
+   works under style-src 'self'. */
+.jpwa-chip, .jpwa-backdrop, .jpwa-toast, .jpwa-start {
+  --jpwa-bg: #ffffff;
+  --jpwa-fg: #16191a;
+  --jpwa-muted: #5a6062;
+  --jpwa-line: #d9dfe0;
+  --jpwa-accent: #3a7d82;
+  --jpwa-accent-fg: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+@media (prefers-color-scheme: dark) {
+  .jpwa-chip, .jpwa-backdrop, .jpwa-toast, .jpwa-start {
+    --jpwa-bg: #1d2122;
+    --jpwa-fg: #eef2f2;
+    --jpwa-muted: #b2c8c9;
+    --jpwa-line: #384042;
+    --jpwa-accent: #7fa3a4;
+    --jpwa-accent-fg: #101314;
+  }
+}
+
+.jpwa-chip {
+  position: fixed;
+  left: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 2147482000;
+  display: flex;
+  align-items: stretch;
+  background: var(--jpwa-bg);
+  color: var(--jpwa-fg);
+  border: 1px solid var(--jpwa-line);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.jpwa-chip button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  min-height: 44px;
+}
+.jpwa-chip-main { padding: 0 8px 0 16px; font-weight: 600; }
+.jpwa-chip-x { padding: 0 14px; color: var(--jpwa-muted); font-size: 20px; }
+.jpwa-chip button:focus-visible { outline: 3px solid var(--jpwa-accent); outline-offset: -3px; }
+
+.jpwa-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482001;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+@media (min-width: 640px) { .jpwa-backdrop { align-items: center; } }
+
+.jpwa-panel {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 480px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--jpwa-bg);
+  color: var(--jpwa-fg);
+  border-radius: 16px 16px 0 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 640px) { .jpwa-panel { border-radius: 16px; } }
+
+.jpwa-title { margin: 0 40px 8px 0; font-size: 20px; font-weight: 700; }
+.jpwa-text { margin: 0 0 12px; }
+.jpwa-note { margin: 12px 0 0; color: var(--jpwa-muted); font-size: 14px; }
+.jpwa-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--jpwa-muted);
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.jpwa-choices { display: grid; gap: 8px; }
+.jpwa-choice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--jpwa-line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.jpwa-choice input { margin-top: 4px; width: 20px; height: 20px; accent-color: var(--jpwa-accent); }
+.jpwa-choice-text { display: grid; gap: 2px; }
+.jpwa-hint { color: var(--jpwa-muted); font-size: 14px; }
+
+.jpwa-row { display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+.jpwa-btn {
+  font: inherit;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1px solid var(--jpwa-line);
+  background: transparent;
+  color: var(--jpwa-fg);
+  cursor: pointer;
+}
+.jpwa-primary { background: var(--jpwa-accent); border-color: var(--jpwa-accent); color: var(--jpwa-accent-fg); }
+.jpwa-link { color: var(--jpwa-accent); margin-right: auto; }
+.jpwa-btn:focus-visible, .jpwa-link:focus-visible, .jpwa-choice:focus-within { outline: 3px solid var(--jpwa-accent); outline-offset: 2px; }
+
+.jpwa-steps { margin: 0; padding-left: 22px; display: grid; gap: 16px; }
+.jpwa-shot {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  border: 1px solid var(--jpwa-line);
+  border-radius: 12px;
+}
+
+.jpwa-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 2147482002;
+  max-width: calc(100vw - 32px);
+  background: var(--jpwa-fg);
+  color: var(--jpwa-bg);
+  padding: 12px 16px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* /pwa/start.html and /pwa/offline.html — neutral pages, no joliro branding. */
+.jpwa-start {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f3f5;
+  color: #2b3033;
+  text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+@media (prefers-color-scheme: dark) { .jpwa-start { background: #1b1d20; color: #e6e8ea; } }
+.jpwa-start main { max-width: 360px; display: grid; gap: 16px; justify-items: center; }
+.jpwa-start img { width: 96px; height: 96px; border-radius: 22px; }
+.jpwa-start h1 { margin: 0; font-size: 24px; }
+.jpwa-start p { margin: 0; }
+.jpwa-start a { color: inherit; }
+.jpwa-start .jpwa-btn { background: #4a5560; border-color: #4a5560; color: #fff; }

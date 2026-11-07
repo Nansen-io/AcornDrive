@@ -19,7 +19,7 @@
 // standing in front of the screen. If the message never arrives, or the browser refuses
 // window.close(), the session is over regardless.
 
-import { clearLocalTraces } from "@/utils/auth";
+import { clearLocalTraces, pwaSignOutCleanup } from "@/utils/auth";
 
 const CHANNEL_NAME = "joliro-slo";
 
@@ -87,15 +87,20 @@ function onSignedOut(): void {
   clearTheScreen();
   clearLocalTraces();
 
-  // window.close() only works on a tab that a script opened, which is how the hub opens
-  // tiles. A tab the person opened themselves, from a bookmark or by typing the address,
-  // will refuse it silently -- no error, nothing to catch. That refusal is why the screen
-  // is cleared above rather than relying on this line.
-  try {
-    window.close();
-  } catch {
-    // Ignore. The overlay is already showing.
-  }
+  // joliro PWA kit cleanup (push unsubscribe, Cache Storage). The kit hears this broadcast
+  // too and starts the same cleanup; the call is shared, so this only waits for it (at most
+  // 1.5 s, with the screen already covered) so closing the tab does not cut it short.
+  void pwaSignOutCleanup().then(() => {
+    // window.close() only works on a tab that a script opened, which is how the hub opens
+    // tiles. A tab the person opened themselves, from a bookmark or by typing the address,
+    // will refuse it silently -- no error, nothing to catch. That refusal is why the screen
+    // is cleared above rather than relying on this line.
+    try {
+      window.close();
+    } catch {
+      // Ignore. The overlay is already showing.
+    }
+  });
 }
 
 export function listenForSingleLogout(): void {

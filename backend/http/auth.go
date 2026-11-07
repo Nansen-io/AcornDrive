@@ -326,6 +326,21 @@ func sloHandler(w http.ResponseWriter, r *http.Request, _ *requestContext) (int,
   } catch (e) {
     // Storage blocked. The cookie is gone regardless.
   }
+  // The joliro PWA kit's signOutCleanup, for when no Drive tab is open to run it: delete every
+  // Cache Storage cache on this origin and drop this browser's push subscription. (Open Drive
+  // tabs run the kit's own cleanup when they hear the broadcast below.) Best effort.
+  try {
+    if (window.caches) {
+      caches.keys().then(function (keys) { keys.forEach(function (k) { caches.delete(k); }); }).catch(function () {});
+    }
+  } catch (e) {}
+  try {
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.getRegistration("/").then(function (reg) {
+        return reg && reg.pushManager ? reg.pushManager.getSubscription() : null;
+      }).then(function (sub) { if (sub) return sub.unsubscribe(); }).catch(function () {});
+    }
+  } catch (e) {}
   try {
     var channel = new BroadcastChannel("joliro-slo");
     channel.postMessage({ type: "signed-out", app: "drive" });

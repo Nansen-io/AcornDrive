@@ -7,7 +7,7 @@
 // delivers even as the page goes away. Drive's earlier history entries in this tab cannot be
 // removed by any page, but with the session ended they lead to a login screen, not her files.
 
-import { clearLocalTraces } from "@/utils/auth";
+import { clearLocalTraces, pwaSignOutCleanup } from "@/utils/auth";
 import { getApiPath } from "@/utils/url.js";
 
 // Same destination as the hub's Quick Exit.
@@ -22,5 +22,7 @@ export function quickExit(): void {
     // No beacon support. The token still expires on its own.
   }
   clearLocalTraces();
+  // joliro PWA kit cleanup (push unsubscribe, Cache Storage). Quick Exit never waits for it.
+  void pwaSignOutCleanup();
   window.location.replace(NEUTRAL_SITE);
 }

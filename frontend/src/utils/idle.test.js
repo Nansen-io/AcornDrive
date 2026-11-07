@@ -123,6 +123,26 @@ describe("checkIdleOnBoot", () => {
   });
 });
 
+describe("signOutForInactivity and the joliro PWA kit", () => {
+  it("runs the kit's sign-out cleanup and waits for it before leaving", async () => {
+    let finish;
+    const signOutCleanup = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    window.joliroPwa = { signOutCleanup };
+    const { signOutForInactivity } = await loadIdle();
+
+    const done = signOutForInactivity();
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(signOutCleanup).toHaveBeenCalledTimes(1);
+    expect(replaced).toBeNull();
+
+    finish();
+    await done;
+    expect(replaced).toBe(B2C_SIGN_OUT);
+    delete window.joliroPwa;
+  });
+});
+
 describe("startIdleTimer", () => {
   it("warns for the last five minutes, then signs out", async () => {
     const { startIdleTimer, idle } = await loadIdle();

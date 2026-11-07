@@ -19,7 +19,7 @@
 // session by the drive_new_session cookie the server sets at every real sign-in.
 
 import { reactive } from "vue";
-import { clearLocalTraces, LAST_ACTIVITY_KEY } from "@/utils/auth";
+import { clearLocalTraces, LAST_ACTIVITY_KEY, pwaSignOutCleanup } from "@/utils/auth";
 import { clearTheScreen } from "@/utils/slo";
 import { getApiPath } from "@/utils/url.js";
 import { globalVars } from "@/utils/constants";
@@ -104,6 +104,8 @@ export async function signOutForInactivity(): Promise<void> {
   // Cover first. If the request or the navigation below stalls, her files are not left on screen.
   clearTheScreen();
   clearLocalTraces();
+  // Push unsubscribe and Cache Storage, alongside the logout request; awaited before leaving.
+  const pwaCleanup = pwaSignOutCleanup();
 
   let destination = HUB_SIGNED_OUT_URL;
   try {
@@ -122,6 +124,7 @@ export async function signOutForInactivity(): Promise<void> {
       // Without the flag she lands on Drive's login page instead of the hub's. Still signed out.
     }
   }
+  await pwaCleanup;
   window.location.replace(destination);
 }
 

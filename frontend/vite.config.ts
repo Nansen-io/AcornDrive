@@ -70,7 +70,12 @@ export default defineConfig(({ command }) => {
       },
     },
     experimental: {
-      renderBuiltUrl(filename, { hostType }) {
+      renderBuiltUrl(filename, { hostType, type }) {
+        // joliro PWA kit: the manifest, service worker and /pwa/** are served at the site root
+        // by the backend (http/pwa.go), not under staticURL, so their head tags keep root URLs.
+        if (type === "public" && (filename === "manifest.webmanifest" || filename.startsWith("pwa/"))) {
+          return "/" + filename;
+        }
         if (hostType === "js") {
           // Use relative paths instead of runtime function
           return { relative: true };

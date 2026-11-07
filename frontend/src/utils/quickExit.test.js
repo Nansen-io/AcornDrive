@@ -55,4 +55,16 @@ describe("quickExit", () => {
 
     expect(replaced).toBe("https://www.cnn.com");
   });
+
+  it("starts the joliro PWA kit cleanup but does not wait for it", () => {
+    // A cleanup that never settles must not hold her on the page.
+    const signOutCleanup = vi.fn(() => new Promise(() => {}));
+    window.joliroPwa = { signOutCleanup };
+
+    quickExit();
+
+    expect(signOutCleanup).toHaveBeenCalledTimes(1);
+    expect(replaced).toBe("https://www.cnn.com");
+    delete window.joliroPwa;
+  });
 });

@@ -96,6 +96,18 @@ func TestSLOAnnouncesTheSignOut(t *testing.T) {
 	}
 }
 
+// With no Drive tab open there is no joliro PWA kit on the page to clean up, so the SLO page
+// does the kit's sign-out cleanup itself: Cache Storage and the push subscription.
+func TestSLOClearsPwaState(t *testing.T) {
+	body := serveSLO(t).Body.String()
+	if !strings.Contains(body, "caches.delete(") {
+		t.Error("the page does not delete Cache Storage")
+	}
+	if !strings.Contains(body, "sub.unsubscribe()") {
+		t.Error("the page does not drop the push subscription")
+	}
+}
+
 func TestSLONonceMatchesTheScript(t *testing.T) {
 	rec := serveSLO(t)
 

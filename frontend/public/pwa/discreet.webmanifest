@@ -1,0 +1,36 @@
+{
+  "id": "/pwa/discreet",
+  "name": "Storage",
+  "short_name": "Storage",
+  "start_url": "/pwa/start.html",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#F2F3F5",
+  "background_color": "#F2F3F5",
+  "icons": [
+    {
+      "src": "/pwa/icons/discreet-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa/icons/discreet-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa/icons/discreet-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa/icons/discreet-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

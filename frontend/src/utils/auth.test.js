@@ -129,6 +129,47 @@ describe("logout", () => {
   });
 });
 
+describe("logout and the joliro PWA kit", () => {
+  afterEach(() => {
+    delete window.joliroPwa;
+  });
+
+  it("runs the kit's sign-out cleanup and waits for it before leaving the tab", async () => {
+    mockLogoutResponse({ logoutUrl: B2C_SIGN_OUT });
+    let finish;
+    const signOutCleanup = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    window.joliroPwa = { signOutCleanup };
+
+    const done = logout();
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+
+    // Push subscription and caches are dropped before the tab closes or navigates away.
+    expect(signOutCleanup).toHaveBeenCalledTimes(1);
+    expect(closeSpy).not.toHaveBeenCalled();
+
+    finish();
+    await done;
+    vi.runAllTimers();
+    expect(closeSpy).toHaveBeenCalled();
+    expect(assignedHref).toBe(B2C_SIGN_OUT);
+  });
+
+  it("still signs out when the kit throws", async () => {
+    mockLogoutResponse({ logoutUrl: B2C_SIGN_OUT });
+    window.joliroPwa = {
+      signOutCleanup: () => {
+        throw new Error("broken");
+      },
+    };
+
+    await logout();
+    vi.runAllTimers();
+
+    expect(assignedHref).toBe(B2C_SIGN_OUT);
+  });
+});
+
 describe("clearLocalTraces", () => {
   it("removes folder paths, share passwords and the last-activity time, and nothing else", () => {
     localStorage.setItem("displayPreferences", "{}");

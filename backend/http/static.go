@@ -42,6 +42,15 @@ func (t *TemplateRenderer) Render(w http.ResponseWriter, name string, data inter
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
+// indexCSP is the policy for the HTML shell (index.html, also used for share pages).
+func indexCSP(nonce string) string {
+	return "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; " +
+		"manifest-src 'self'; worker-src 'self'; " +
+		"style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-" + nonce + "'; " +
+		"connect-src 'self' " + pwaHub + "; " +
+		"frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+}
+
 func handleWithStaticData(w http.ResponseWriter, r *http.Request, d *requestContext, file, contentType string) (int, error) {
 	w.Header().Set("Content-Type", contentType)
 
@@ -55,11 +64,9 @@ func handleWithStaticData(w http.ResponseWriter, r *http.Request, d *requestCont
 		return http.StatusInternalServerError, fmt.Errorf("error generating csp nonce: %w", err)
 	}
 	nonce := base64.StdEncoding.EncodeToString(nonceBytes)
-	w.Header().Set("Content-Security-Policy",
-		"default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; "+
-			"manifest-src 'self' blob:; "+
-			"style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-"+nonce+"'; connect-src 'self'; "+
-			"frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+	// manifest-src/worker-src 'self': the joliro PWA kit's /manifest.webmanifest and /sw.js (the
+	// old blob: manifest is gone). connect-src names the hub, whose push API the kit calls.
+	w.Header().Set("Content-Security-Policy", indexCSP(nonce))
 	userSelectedTheme := ""
 	versionString := ""
 	commitSHAString := ""
@@ -142,7 +149,6 @@ func handleWithStaticData(w http.ResponseWriter, r *http.Request, d *requestCont
 		"loginIcon":         loginIcon,
 		"color":             defaultThemeColor,
 		"winIcon":           staticURL + "/img/icons/mstile-144x144.png",
-		"appIcon":           staticURL + "/img/icons/android-chrome-256x256.png",
 		"description":       description,
 	}
 	// variables consumed by frontend as json
@@ -253,10 +259,6 @@ func staticAssetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Use embedded default
 		assetPath = settings.Env.FaviconEmbeddedPath
-	case "manifest.json":
-		assetPath = "img/icons/manifest.json"
-	case "site.webmanifest":
-		assetPath = "img/icons/site.webmanifest"
 	case "loginIcon":
 		// Handle custom login icon from filesystem
 		if settings.Env.LoginIconIsCustom {
