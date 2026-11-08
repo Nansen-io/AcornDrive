@@ -99,6 +99,15 @@ export function setLocale(locale: string) {
   // https://vue-i18n.intlify.dev/guide/essentials/scope.html#local-scope-1
   //@ts-ignore
   i18n.global.locale.value = locale;
+  setDocumentLang(locale);
+}
+
+// The page's language on <html lang>, so screen readers and the home-screen install
+// screens (public/pwa/joliro-pwa.js, which watches it) follow the chosen language.
+// index.html ships lang="en" until this runs.
+export function setDocumentLang(locale: string) {
+  if (typeof document === 'undefined' || !locale) return;
+  document.documentElement.setAttribute('lang', toStandardLocale(locale));
 }
 
 
@@ -136,5 +145,7 @@ const i18n = createI18n({
     cz,
   },
 });
+
+setDocumentLang(detectLocale());
 
 export default i18n;

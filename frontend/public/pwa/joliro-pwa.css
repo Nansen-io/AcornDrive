@@ -164,3 +164,31 @@
 .jpwa-start p { margin: 0; }
 .jpwa-start a { color: inherit; }
 .jpwa-start .jpwa-btn { background: #4a5560; border-color: #4a5560; color: #fff; }
+
+/* Name for the discreet install (shown under the Discreet choice and on the start page). */
+.jpwa-field { display: grid; gap: 4px; margin: 4px 0 0 32px; }
+.jpwa-field[hidden] { display: none; }
+.jpwa-field label { font-size: 14px; font-weight: 600; }
+.jpwa-input {
+  font: inherit;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--jpwa-line);
+  border-radius: 10px;
+  background: var(--jpwa-bg);
+  color: var(--jpwa-fg);
+}
+.jpwa-input:focus-visible { outline: 3px solid var(--jpwa-accent); outline-offset: 1px; }
+.jpwa-panel > .jpwa-field { margin: 0 0 12px; }
+
+/* Right-to-left (Arabic). The panel, chip and toast carry their own dir. */
+.jpwa-chip[dir="rtl"] { left: auto; right: 16px; }
+.jpwa-chip[dir="rtl"] .jpwa-chip-main { padding: 0 16px 0 8px; }
+.jpwa-panel[dir="rtl"] .jpwa-x { right: auto; left: 8px; }
+.jpwa-panel[dir="rtl"] .jpwa-title { margin: 0 0 8px 40px; }
+.jpwa-panel[dir="rtl"] .jpwa-steps { padding-left: 0; padding-right: 22px; }
+.jpwa-panel[dir="rtl"] .jpwa-link { margin-right: 0; margin-left: auto; }
+.jpwa-panel[dir="rtl"] .jpwa-field { margin: 4px 32px 0 0; }
+.jpwa-panel[dir="rtl"] > .jpwa-field { margin: 0 0 12px; }
