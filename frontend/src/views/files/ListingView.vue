@@ -209,6 +209,21 @@
           multiple
         />
       </div>
+
+      <!-- Mobile add button: sidebar (with New Folder/File/Upload) is hidden on mobile -->
+      <button
+        v-if="showMobileAddButton"
+        class="mobile-add-fab"
+        :aria-label="$t('sidebar.fileActions')"
+        :title="$t('sidebar.fileActions')"
+        @click.stop="openCreateMenu"
+        @mousedown.stop
+        @touchstart.stop
+        @touchend.stop
+        @contextmenu.prevent.stop
+      >
+        <i class="material-icons">add</i>
+      </button>
     </div>
   </div>
 
@@ -319,6 +334,9 @@ export default {
     },
     isStickySidebar() {
       return getters.isStickySidebar();
+    },
+    showMobileAddButton() {
+      return state.isMobile && !getters.isShare() && !state.isSearchActive && getters.permissions().create;
     },
     lastFolderIndex() {
       const allItems = [...this.items.dirs, ...this.items.files];
@@ -1164,6 +1182,13 @@ export default {
       // Listing element is not displayed
       if (this.$refs.listingView == null) return;
     }, 100),
+    openCreateMenu() {
+      mutations.resetSelected();
+      mutations.showHover({
+        name: "ContextMenu",
+        props: { showCentered: true },
+      });
+    },
     openContext(event) {
       event.preventDefault();
       event.stopPropagation();
@@ -1372,6 +1397,35 @@ export default {
 </script>
 
 <style>
+.mobile-add-fab {
+  position: fixed;
+  right: 1.25em;
+  /* sit above the 3em mobile status bar and the iOS home indicator */
+  bottom: calc(4.25em + env(safe-area-inset-bottom, 0px));
+  width: 3.5em;
+  height: 3.5em;
+  border: none;
+  border-radius: 50%;
+  background-color: #50898e;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-add-fab:active {
+  transform: scale(0.94);
+}
+
+.mobile-add-fab i {
+  font-size: 2em;
+  color: white;
+}
+
 .dark-mode-item-header {
   border-color: var(--divider) !important;
   background: var(--surfacePrimary) !important;

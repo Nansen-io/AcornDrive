@@ -110,6 +110,13 @@ redirects closed (`chainfs.go`, `Login.vue`), and the Azure token encryption key
 separately from the JWT signing key with a backward-compatible decrypt fallback (`chainfs.go`,
 `chainfs_crypto_test.go`). App version set to `2.0.0.0` (`backend/common/version/version.go`).
 
+### 8. Mobile add button (2026-11-10)
+
+On mobile (≤800px) the sidebar is never sticky, so the New Folder / New File / Upload actions in `SidebarActions.vue` are hidden until the menu is opened, and the upstream sidebar "+ File actions" button is `display: none`. A floating "+" button now shows bottom-right in the listing view on mobile (for users with create permission, not on shares or during search). It opens the context menu in create mode.
+
+**Files Modified:**
+- `frontend/src/views/files/ListingView.vue`
+
 ---
 
 ## Future Priorities
