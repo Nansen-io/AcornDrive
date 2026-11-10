@@ -36,5 +36,16 @@
   "offlineBody": "Sprawdź połączenie i spróbuj ponownie.",
   "offlineRetry": "Spróbuj ponownie",
   "notificationTitle": "Nowe powiadomienie",
-  "notificationBody": "Otwórz aplikację, aby je zobaczyć."
+  "notificationBody": "Otwórz aplikację, aby je zobaczyć.",
+  "safetyTitle": "Ostrzeżenie dotyczące bezpieczeństwa",
+  "safetyIntro": "Trzymaj tę aplikację na ekranie głównym tylko wtedy, gdy nikt inny nie ma dostępu do tego urządzenia. Nawet pod dyskretną nazwą może ona pokazać komuś, że korzystasz z tej usługi.",
+  "safetyDontIf": "Nie instaluj jej i nie zostawiaj, jeśli prawdziwe jest którekolwiek z poniższych:",
+  "safetyRisk1": "Ktoś inny zna Twój kod lub może odblokować to urządzenie.",
+  "safetyRisk2": "Ktoś inny konfigurował to urządzenie lub ma dostęp do powiązanego z nim konta Apple lub Google.",
+  "safetyRisk3": "Podejrzewasz, że to urządzenie może być monitorowane.",
+  "safetyCheck": "Jeśli nie masz jeszcze za sobą joliroDetect ani audytu bezpieczeństwa cyfrowego z The Digital Safeguard Centre, zrób to najpierw.",
+  "safetyDetectLink": "Otwórz joliroDetect",
+  "safetyContinue": "Rozumiem, dalej",
+  "safetyOk": "Rozumiem",
+  "safetyRemove": "Jeśli to urządzenie nie jest bezpieczne, usuń aplikację z ekranu głównego."
 }

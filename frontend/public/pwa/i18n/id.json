@@ -36,5 +36,16 @@
   "offlineBody": "Periksa koneksi Anda, lalu coba lagi.",
   "offlineRetry": "Coba lagi",
   "notificationTitle": "Notifikasi baru",
-  "notificationBody": "Buka aplikasi untuk melihatnya."
+  "notificationBody": "Buka aplikasi untuk melihatnya.",
+  "safetyTitle": "Peringatan keamanan",
+  "safetyIntro": "Simpan aplikasi ini di layar utama hanya jika tidak ada orang lain yang bisa mengakses perangkat ini. Meski memakai nama yang tidak mencolok, aplikasi ini tetap bisa menunjukkan kepada orang lain bahwa Anda memakai layanan ini.",
+  "safetyDontIf": "Jangan instal atau simpan aplikasi ini jika salah satu hal berikut benar:",
+  "safetyRisk1": "Orang lain tahu kode sandi Anda atau bisa membuka kunci perangkat ini.",
+  "safetyRisk2": "Orang lain menyiapkan perangkat ini atau bisa mengakses akun Apple atau Google-nya.",
+  "safetyRisk3": "Anda menduga perangkat ini mungkin dipantau.",
+  "safetyCheck": "Jika Anda belum menyelesaikan joliroDetect atau Audit Keamanan Digital bersama The Digital Safeguard Centre, lakukan itu terlebih dahulu.",
+  "safetyDetectLink": "Buka joliroDetect",
+  "safetyContinue": "Saya mengerti, lanjutkan",
+  "safetyOk": "Saya mengerti",
+  "safetyRemove": "Jika perangkat ini tidak aman, hapus aplikasi dari layar utama."
 }

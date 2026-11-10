@@ -36,5 +36,16 @@
   "offlineBody": "Controleer je verbinding en probeer het opnieuw.",
   "offlineRetry": "Opnieuw proberen",
   "notificationTitle": "Nieuwe melding",
-  "notificationBody": "Open de app om de melding te bekijken."
+  "notificationBody": "Open de app om de melding te bekijken.",
+  "safetyTitle": "Veiligheidswaarschuwing",
+  "safetyIntro": "Zet deze app alleen op je beginscherm als niemand anders bij dit apparaat kan. Ook met een onopvallende naam kan de app iemand laten zien dat je deze dienst gebruikt.",
+  "safetyDontIf": "Installeer of bewaar de app niet als een van deze dingen klopt:",
+  "safetyRisk1": "Iemand anders kent je toegangscode of kan dit apparaat ontgrendelen.",
+  "safetyRisk2": "Iemand anders heeft dit apparaat ingesteld of kan bij het Apple- of Google-account ervan.",
+  "safetyRisk3": "Je denkt dat dit apparaat misschien in de gaten wordt gehouden.",
+  "safetyCheck": "Heb je joliroDetect of een digitale veiligheidscheck met The Digital Safeguard Centre nog niet afgerond? Doe dat dan eerst.",
+  "safetyDetectLink": "joliroDetect openen",
+  "safetyContinue": "Ik begrijp het, doorgaan",
+  "safetyOk": "Ik begrijp het",
+  "safetyRemove": "Is dit apparaat niet veilig? Verwijder de app dan van je beginscherm."
 }

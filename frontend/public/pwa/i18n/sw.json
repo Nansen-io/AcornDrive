@@ -36,5 +36,16 @@
   "offlineBody": "Angalia muunganisho wako, kisha ujaribu tena.",
   "offlineRetry": "Jaribu tena",
   "notificationTitle": "Arifa mpya",
-  "notificationBody": "Fungua programu ili uione."
+  "notificationBody": "Fungua programu ili uione.",
+  "safetyTitle": "Onyo la usalama",
+  "safetyIntro": "Weka programu hii kwenye skrini ya mwanzo tu ikiwa hakuna mtu mwingine anayeweza kufikia kifaa hiki. Hata ikiwa na jina lisilo dhahiri, inaweza kumwonyesha mtu kwamba unatumia huduma hii.",
+  "safetyDontIf": "Usiisakinishe wala usiiache ikiwa lolote kati ya haya ni kweli:",
+  "safetyRisk1": "Mtu mwingine anajua nambari yako ya siri au anaweza kufungua kifaa hiki.",
+  "safetyRisk2": "Mtu mwingine aliweka mipangilio ya kifaa hiki au anaweza kuingia kwenye akaunti yake ya Apple au Google.",
+  "safetyRisk3": "Unadhani kifaa hiki kinaweza kuwa kinafuatiliwa.",
+  "safetyCheck": "Ikiwa bado hujakamilisha joliroDetect au Ukaguzi wa Usalama wa Kidijitali na The Digital Safeguard Centre, fanya hivyo kwanza.",
+  "safetyDetectLink": "Fungua joliroDetect",
+  "safetyContinue": "Nimeelewa, endelea",
+  "safetyOk": "Nimeelewa",
+  "safetyRemove": "Ikiwa kifaa hiki si salama, ondoa programu kwenye skrini ya mwanzo."
 }

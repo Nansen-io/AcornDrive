@@ -36,5 +36,16 @@
   "offlineBody": "请检查网络连接，然后重试。",
   "offlineRetry": "重试",
   "notificationTitle": "新通知",
-  "notificationBody": "打开应用即可查看。"
+  "notificationBody": "打开应用即可查看。",
+  "safetyTitle": "安全警告",
+  "safetyIntro": "只有在其他人都无法使用此设备时，才将此应用保留在主屏幕上。即使使用不起眼的名称，它也可能让他人知道您在使用这项服务。",
+  "safetyDontIf": "如果符合以下任何一种情况，请不要安装或保留此应用：",
+  "safetyRisk1": "其他人知道您的密码，或能够解锁此设备。",
+  "safetyRisk2": "此设备是其他人设置的，或其他人能够登录此设备的 Apple 或 Google 帐户。",
+  "safetyRisk3": "您认为此设备可能正在被监控。",
+  "safetyCheck": "如果您尚未完成 joliroDetect，或尚未与 The Digital Safeguard Centre 完成数字安全审计，请先完成。",
+  "safetyDetectLink": "打开 joliroDetect",
+  "safetyContinue": "我已了解，继续",
+  "safetyOk": "我已了解",
+  "safetyRemove": "如果此设备不安全，请将此应用从主屏幕移除。"
 }

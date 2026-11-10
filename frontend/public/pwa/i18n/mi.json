@@ -36,5 +36,16 @@
   "offlineBody": "Tirohia tō hononga, kātahi ka whakamātau anō.",
   "offlineRetry": "Whakamātau anō",
   "notificationTitle": "He whakamōhiotanga hou",
-  "notificationBody": "Whakatuwherahia te taupānga kia kite ai koe."
+  "notificationBody": "Whakatuwherahia te taupānga kia kite ai koe.",
+  "safetyTitle": "Whakatūpato haumaru",
+  "safetyIntro": "Me waiho noa tēnei taupānga ki tō mata kāinga mēnā kāore he tangata kē e taea te uru ki tēnei pūrere. Ahakoa he ingoa huna, ka kitea pea e tētahi atu kei te whakamahi koe i tēnei ratonga.",
+  "safetyDontIf": "Kaua e tāuta, e pupuri rānei mēnā he tika tētahi o ēnei:",
+  "safetyRisk1": "E mōhio ana tētahi atu ki tō waehere, ka taea rānei e ia te whakatuwhera i tēnei pūrere.",
+  "safetyRisk2": "Nā tētahi atu tēnei pūrere i whakarite, ka taea rānei e ia te uru ki tōna pūkete Apple, Google rānei.",
+  "safetyRisk3": "Ki ōu whakaaro kei te tirotirohia pea tēnei pūrere.",
+  "safetyCheck": "Ki te kore anō koe kia oti i a joliroDetect, i tētahi Arotake Haumaru Matihiko rānei me The Digital Safeguard Centre, whakaotihia tērā i te tuatahi.",
+  "safetyDetectLink": "Whakatuwherahia a joliroDetect",
+  "safetyContinue": "Kua mārama, haere tonu",
+  "safetyOk": "Kua mārama",
+  "safetyRemove": "Mēnā kāore tēnei pūrere i te haumaru, tangohia te taupānga i tō mata kāinga."
 }

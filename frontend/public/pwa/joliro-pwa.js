@@ -19,6 +19,8 @@
  *   - captures beforeinstallprompt (Android, desktop Chrome/Edge) for an Install button
  *   - detects iPhone/iPad Safari not yet installed (navigator.standalone) and shows
  *     the Add to Home Screen guide instead
+ *   - shows a safety warning before any install (and once in an installed app that
+ *     was added some other way); see "Safety warning" below
  *   - lets the person choose Standard or Discreet before installing; Discreet goes via
  *     /pwa/start.html, which links its own manifest and icon, under a name the person
  *     chooses (the app's neutral name unless they change it)
@@ -61,6 +63,7 @@
     home: attr('data-home', '/'),
     guideBase: attr('data-guide', '/pwa/ios/'),
     i18nBase: attr('data-i18n', '/pwa/i18n/'),
+    detect: attr('data-detect', 'https://detect.joliro.org'),
     swMode: attr('data-sw-mode', 'installed')
   };
 
@@ -103,7 +106,18 @@
     offlineBody: 'Check your connection, then try again.',
     offlineRetry: 'Try again',
     notificationTitle: 'New notification',
-    notificationBody: 'Open the app to see it.'
+    notificationBody: 'Open the app to see it.',
+    safetyTitle: 'Safety warning',
+    safetyIntro: 'Only keep this app on your home screen if no one else can get into this device. Even with a discreet name, it can show someone that you use this service.',
+    safetyDontIf: 'Do not install or keep it if any of these are true:',
+    safetyRisk1: 'Someone else knows your passcode or can unlock this device.',
+    safetyRisk2: 'Someone else set up this device or can get into its Apple or Google account.',
+    safetyRisk3: 'You think this device might be monitored.',
+    safetyCheck: 'If you have not yet completed joliroDetect or a Digital Safety Audit with The Digital Safeguard Centre, do that first.',
+    safetyDetectLink: 'Open joliroDetect',
+    safetyContinue: 'I understand, continue',
+    safetyOk: 'I understand',
+    safetyRemove: 'If this device is not safe, remove the app from your home screen.'
   };
   var S = {};
 
@@ -328,6 +342,7 @@
 
   function promptInstall() {
     ensureSW();
+    rememberSafety();
     if (deferredPrompt) {
       var p = deferredPrompt;
       deferredPrompt = null;
@@ -441,9 +456,12 @@
 
   // ---- Sign-out --------------------------------------------------------------
 
-  // Kept through sign-out: the discreet name and the language, which the installed
-  // app needs to keep looking the same. Nothing personal is ever stored there.
+  // Kept through sign-out: the discreet name, the language and whether the safety
+  // warning was accepted, which the installed app needs to keep behaving the same.
+  // Nothing personal is ever stored there.
   var KEEP = 'joliro-prefs-';
+  var PREFS = KEEP + cfg.app;
+  var PREF_SAFETY = '/pwa/prefs/safety-ok';
 
   var cleaning = null;
   function signOutCleanup(opts) {
@@ -559,6 +577,82 @@
     return { wrap: wrap, input: input };
   }
 
+  // ---- Safety warning --------------------------------------------------------
+  // Every way into installing goes through this first: the chip, a page's own
+  // [data-jpwa-install] button, and the start page. It is accepted for the tab
+  // (sessionStorage), so it shows again the next time the browser is opened.
+  // An app installed some other way (the browser's own menu, or Share > Add to
+  // Home Screen on an iPhone without tapping the chip) shows it once, the first
+  // time it opens. Accepting it there, or tapping Install, is remembered in the
+  // preferences cache, which an iPhone's installed app does not share with Safari,
+  // so on an iPhone it also shows once when the installed app first opens.
+
+  var safetyNext = null;
+  function safetyAccepted() { return session('safety-ok') === '1'; }
+
+  function rememberSafety() {
+    session('safety-ok', '1');
+    if (!('caches' in window)) return;
+    caches.open(PREFS).then(function (c) { return c.put(PREF_SAFETY, new Response('1')); }).catch(function () {});
+  }
+
+  function beforeInstall(next) {
+    if (safetyAccepted()) return next();
+    safetyNext = next;
+    openSafety();
+  }
+
+  function openSafety() {
+    var installed = isStandalone();
+    openPanel('safety', S.safetyTitle, function (box) {
+      box.classList.add('jpwa-warning');
+      box.appendChild(el('p', 'jpwa-text', S.safetyIntro));
+      box.appendChild(el('p', 'jpwa-text', S.safetyDontIf));
+      var ul = el('ul', 'jpwa-list');
+      ['safetyRisk1', 'safetyRisk2', 'safetyRisk3'].forEach(function (key) { ul.appendChild(el('li', null, S[key])); });
+      box.appendChild(ul);
+      box.appendChild(el('p', 'jpwa-text', S.safetyCheck));
+      if (cfg.app !== 'detect' && cfg.detect) {
+        var p = el('p', 'jpwa-text');
+        var a = el('a', 'jpwa-link', S.safetyDetectLink);
+        a.href = cfg.detect;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        p.appendChild(a);
+        box.appendChild(p);
+      }
+      if (installed) box.appendChild(el('p', 'jpwa-note', S.safetyRemove));
+      var row = el('div', 'jpwa-row');
+      if (installed) {
+        row.appendChild(button(S.safetyOk, 'jpwa-primary', function () { rememberSafety(); closePanel(); }));
+      } else {
+        row.appendChild(button(S.cancel, 'jpwa-secondary', function () { safetyNext = null; closePanel(); }));
+        row.appendChild(button(S.safetyContinue, 'jpwa-primary', function () {
+          session('safety-ok', '1');
+          var next = safetyNext || openChooser;
+          safetyNext = null;
+          next();
+        }));
+      }
+      box.appendChild(row);
+    });
+  }
+
+  // The installed app, opened for the first time without the warning having been
+  // accepted on this device (or in this iPhone app's own storage).
+  function checkSafetyOnLaunch() {
+    if (!cfg.ui || ownPage || !isStandalone() || safetyAccepted()) return;
+    var seen = 'caches' in window
+      ? caches.open(PREFS).then(function (c) { return c.match(PREF_SAFETY); }).then(function (r) { return !!r; }).catch(function () { return false; })
+      : Promise.resolve(false);
+    seen.then(function (ok) {
+      if (ok) session('safety-ok', '1');
+      else if (!panel) openSafety();
+    });
+  }
+
+  function startInstall() { beforeInstall(openChooser); }
+
   function openChooser() {
     if (cfg.variant === 'discreet') return openDiscreetInstall();
     openPanel('chooser', S.chooserTitle, function (box) {
@@ -668,7 +762,7 @@
     });
   }
 
-  var VIEWS = { chooser: openChooser, discreet: openDiscreetInstall, ios: openIOSGuide, android: openAndroidGuide };
+  var VIEWS = { safety: openSafety, chooser: openChooser, discreet: openDiscreetInstall, ios: openIOSGuide, android: openAndroidGuide };
 
   function notifyMessage(result) {
     var key = result.ok ? 'notifyOn'
@@ -734,7 +828,7 @@
     for (var i = 0; i < own.length; i++) own[i].hidden = !canInstall();
 
     if (canInstall() && session('install-dismissed') !== '1' && !own.length) {
-      chip = makeChip(S.installChip, openChooser, 'install-dismissed');
+      chip = makeChip(S.installChip, startInstall, 'install-dismissed');
     } else if (cfg.push && isStandalone() && pushSupported && Notification.permission !== 'denied' &&
                session('notify-dismissed') !== '1') {
       if (Notification.permission === 'default') {
@@ -757,7 +851,7 @@
     var target = e.target && e.target.closest ? e.target.closest('[data-jpwa-install],[data-jpwa-notify]') : null;
     if (!target) return;
     e.preventDefault();
-    if (target.hasAttribute('data-jpwa-install')) openChooser();
+    if (target.hasAttribute('data-jpwa-install')) startInstall();
     else enableNotifications().then(notifyMessage);
   });
 
@@ -775,7 +869,8 @@
     started = true;
     render();
     if (cfg.push && isStandalone() && pushSupported) loadVapidKey();
-    if (cfg.variant === 'discreet' && params && params.get('install') === '1' && canInstall()) openDiscreetInstall();
+    if (cfg.variant === 'discreet' && params && params.get('install') === '1' && canInstall()) beforeInstall(openDiscreetInstall);
+    checkSafetyOnLaunch();
     // Late-arriving beforeinstallprompt, and display-mode changes after install.
     if (window.matchMedia) {
       var mq = window.matchMedia('(display-mode: standalone)');

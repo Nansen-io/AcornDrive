@@ -36,5 +36,16 @@
   "offlineBody": "Verificați conexiunea, apoi încercați din nou.",
   "offlineRetry": "Încercați din nou",
   "notificationTitle": "Notificare nouă",
-  "notificationBody": "Deschideți aplicația pentru a o vedea."
+  "notificationBody": "Deschideți aplicația pentru a o vedea.",
+  "safetyTitle": "Avertisment de siguranță",
+  "safetyIntro": "Păstrați această aplicație pe ecranul de pornire numai dacă nimeni altcineva nu are acces la acest dispozitiv. Chiar și cu un nume discret, aplicația poate arăta cuiva că folosiți acest serviciu.",
+  "safetyDontIf": "Nu o instalați și nu o păstrați dacă oricare dintre acestea este adevărată:",
+  "safetyRisk1": "Altcineva vă știe codul sau poate debloca acest dispozitiv.",
+  "safetyRisk2": "Altcineva a configurat acest dispozitiv sau are acces la contul său Apple sau Google.",
+  "safetyRisk3": "Credeți că acest dispozitiv ar putea fi monitorizat.",
+  "safetyCheck": "Dacă nu ați finalizat încă joliroDetect sau un audit de siguranță digitală cu The Digital Safeguard Centre, faceți asta mai întâi.",
+  "safetyDetectLink": "Deschideți joliroDetect",
+  "safetyContinue": "Am înțeles, continuați",
+  "safetyOk": "Am înțeles",
+  "safetyRemove": "Dacă acest dispozitiv nu este sigur, eliminați aplicația de pe ecranul de pornire."
 }

@@ -36,5 +36,16 @@
   "offlineBody": "Hãy kiểm tra kết nối, sau đó thử lại.",
   "offlineRetry": "Thử lại",
   "notificationTitle": "Thông báo mới",
-  "notificationBody": "Mở ứng dụng để xem."
+  "notificationBody": "Mở ứng dụng để xem.",
+  "safetyTitle": "Cảnh báo an toàn",
+  "safetyIntro": "Chỉ giữ ứng dụng này trên màn hình chính nếu không ai khác có thể truy cập thiết bị này. Ngay cả với một cái tên kín đáo, ứng dụng vẫn có thể cho người khác biết bạn đang dùng dịch vụ này.",
+  "safetyDontIf": "Đừng cài đặt hoặc giữ ứng dụng nếu có bất kỳ điều nào sau đây:",
+  "safetyRisk1": "Người khác biết mật mã của bạn hoặc có thể mở khóa thiết bị này.",
+  "safetyRisk2": "Người khác đã thiết lập thiết bị này hoặc có thể truy cập tài khoản Apple hay Google của thiết bị.",
+  "safetyRisk3": "Bạn nghĩ thiết bị này có thể đang bị theo dõi.",
+  "safetyCheck": "Nếu bạn chưa hoàn tất joliroDetect hoặc một cuộc Kiểm toán An toàn Kỹ thuật Số với The Digital Safeguard Centre, hãy làm việc đó trước.",
+  "safetyDetectLink": "Mở joliroDetect",
+  "safetyContinue": "Tôi hiểu, tiếp tục",
+  "safetyOk": "Tôi hiểu",
+  "safetyRemove": "Nếu thiết bị này không an toàn, hãy xóa ứng dụng khỏi màn hình chính."
 }

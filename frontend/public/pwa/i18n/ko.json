@@ -36,5 +36,16 @@
   "offlineBody": "연결을 확인한 다음 다시 시도하세요.",
   "offlineRetry": "다시 시도",
   "notificationTitle": "새 알림",
-  "notificationBody": "앱을 열어 확인하세요."
+  "notificationBody": "앱을 열어 확인하세요.",
+  "safetyTitle": "안전 경고",
+  "safetyIntro": "다른 사람이 이 기기를 사용할 수 없는 경우에만 이 앱을 홈 화면에 두세요. 눈에 띄지 않는 이름을 쓰더라도 이 서비스를 이용한다는 사실이 다른 사람에게 드러날 수 있습니다.",
+  "safetyDontIf": "다음 중 하나라도 해당하면 설치하거나 남겨 두지 마세요.",
+  "safetyRisk1": "다른 사람이 내 암호를 알거나 이 기기의 잠금을 해제할 수 있습니다.",
+  "safetyRisk2": "다른 사람이 이 기기를 설정했거나 이 기기의 Apple 또는 Google 계정에 접근할 수 있습니다.",
+  "safetyRisk3": "이 기기가 감시당하고 있을 수 있다고 생각합니다.",
+  "safetyCheck": "아직 joliroDetect 또는 The Digital Safeguard Centre의 디지털 안전 감사를 마치지 않았다면 먼저 진행하세요.",
+  "safetyDetectLink": "joliroDetect 열기",
+  "safetyContinue": "이해했습니다. 계속",
+  "safetyOk": "이해했습니다",
+  "safetyRemove": "이 기기가 안전하지 않다면 홈 화면에서 앱을 삭제하세요."
 }

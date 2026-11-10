@@ -36,5 +36,16 @@
   "offlineBody": "接続を確認してから、もう一度お試しください。",
   "offlineRetry": "再試行",
   "notificationTitle": "新しい通知",
-  "notificationBody": "アプリを開いて確認してください。"
+  "notificationBody": "アプリを開いて確認してください。",
+  "safetyTitle": "安全に関する警告",
+  "safetyIntro": "このアプリは、ほかの誰もこのデバイスを使えない場合にのみホーム画面に置いてください。目立たない名前にしても、このサービスを使っていることを誰かに知られるおそれがあります。",
+  "safetyDontIf": "次のいずれかに当てはまる場合は、インストールしたり残したりしないでください。",
+  "safetyRisk1": "ほかの人があなたのパスコードを知っている、またはこのデバイスのロックを解除できる。",
+  "safetyRisk2": "このデバイスをほかの人が設定した、またはほかの人がこのデバイスの Apple アカウントや Google アカウントにアクセスできる。",
+  "safetyRisk3": "このデバイスが監視されているかもしれないと思う。",
+  "safetyCheck": "joliroDetect、または The Digital Safeguard Centre によるデジタル安全監査をまだ完了していない場合は、先にそちらを行ってください。",
+  "safetyDetectLink": "joliroDetect を開く",
+  "safetyContinue": "理解しました。続ける",
+  "safetyOk": "理解しました",
+  "safetyRemove": "このデバイスが安全でない場合は、ホーム画面からアプリを削除してください。"
 }

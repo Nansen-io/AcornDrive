@@ -32,7 +32,7 @@
 
 var CONFIG = {
   app: 'drive',
-  version: '2',
+  version: '3',
   offlineUrl: '/pwa/offline.html',
   precache: [
     '/pwa/offline.html',

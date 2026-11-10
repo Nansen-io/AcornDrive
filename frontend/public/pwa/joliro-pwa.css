@@ -183,7 +183,19 @@
 .jpwa-input:focus-visible { outline: 3px solid var(--jpwa-accent); outline-offset: 1px; }
 .jpwa-panel > .jpwa-field { margin: 0 0 12px; }
 
+/* Safety warning, shown before any install. */
+.jpwa-warning { border-top: 6px solid #b4572e; }
+.jpwa-warning .jpwa-title::before { content: "\26A0\FE0E"; margin-right: 8px; color: #b4572e; }
+@media (prefers-color-scheme: dark) {
+  .jpwa-warning { border-top-color: #e08a5f; }
+  .jpwa-warning .jpwa-title::before { color: #e08a5f; }
+}
+.jpwa-list { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 6px; }
+.jpwa-text > .jpwa-link { margin: 0; font-weight: 600; }
+
 /* Right-to-left (Arabic). The panel, chip and toast carry their own dir. */
+.jpwa-panel[dir="rtl"] .jpwa-list { padding-left: 0; padding-right: 22px; }
+.jpwa-panel[dir="rtl"].jpwa-warning .jpwa-title::before { margin-right: 0; margin-left: 8px; }
 .jpwa-chip[dir="rtl"] { left: auto; right: 16px; }
 .jpwa-chip[dir="rtl"] .jpwa-chip-main { padding: 0 16px 0 8px; }
 .jpwa-panel[dir="rtl"] .jpwa-x { right: auto; left: 8px; }

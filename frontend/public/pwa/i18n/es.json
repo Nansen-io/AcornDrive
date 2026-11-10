@@ -36,5 +36,16 @@
   "offlineBody": "Comprueba tu conexión y vuelve a intentarlo.",
   "offlineRetry": "Reintentar",
   "notificationTitle": "Nueva notificación",
-  "notificationBody": "Abre la app para verla."
+  "notificationBody": "Abre la app para verla.",
+  "safetyTitle": "Aviso de seguridad",
+  "safetyIntro": "Ten esta app en la pantalla de inicio solo si nadie más puede acceder a este dispositivo. Aunque tenga un nombre discreto, puede mostrar a otra persona que usas este servicio.",
+  "safetyDontIf": "No la instales ni la conserves si se da alguna de estas situaciones:",
+  "safetyRisk1": "Otra persona sabe tu código o puede desbloquear este dispositivo.",
+  "safetyRisk2": "Otra persona configuró este dispositivo o puede entrar en su cuenta de Apple o Google.",
+  "safetyRisk3": "Crees que este dispositivo podría estar vigilado.",
+  "safetyCheck": "Si aún no has completado joliroDetect o una Auditoría de Seguridad Digital con The Digital Safeguard Centre, hazlo primero.",
+  "safetyDetectLink": "Abrir joliroDetect",
+  "safetyContinue": "Entendido, continuar",
+  "safetyOk": "Entendido",
+  "safetyRemove": "Si este dispositivo no es seguro, quita la app de la pantalla de inicio."
 }

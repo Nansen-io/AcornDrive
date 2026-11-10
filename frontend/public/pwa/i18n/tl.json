@@ -36,5 +36,16 @@
   "offlineBody": "Tingnan ang inyong koneksyon, pagkatapos ay subukang muli.",
   "offlineRetry": "Subukang muli",
   "notificationTitle": "Bagong notification",
-  "notificationBody": "Buksan ang app para makita ito."
+  "notificationBody": "Buksan ang app para makita ito.",
+  "safetyTitle": "Babala sa kaligtasan",
+  "safetyIntro": "Itago lamang ang app na ito sa inyong home screen kung walang ibang taong makakapasok sa device na ito. Kahit discreet ang pangalan, maaari pa rin nitong ipakita sa iba na ginagamit ninyo ang serbisyong ito.",
+  "safetyDontIf": "Huwag itong i-install o itago kung totoo ang alinman dito:",
+  "safetyRisk1": "May ibang taong nakakaalam ng inyong passcode o kayang i-unlock ang device na ito.",
+  "safetyRisk2": "Ibang tao ang nag-set up ng device na ito, o kaya niyang pasukin ang Apple o Google account nito.",
+  "safetyRisk3": "Sa tingin ninyo ay maaaring mino-monitor ang device na ito.",
+  "safetyCheck": "Kung hindi pa ninyo natatapos ang joliroDetect o ang isang Digital Safety Audit kasama ang The Digital Safeguard Centre, gawin muna iyon.",
+  "safetyDetectLink": "Buksan ang joliroDetect",
+  "safetyContinue": "Naiintindihan ko, magpatuloy",
+  "safetyOk": "Naiintindihan ko",
+  "safetyRemove": "Kung hindi ligtas ang device na ito, alisin ang app sa inyong home screen."
 }

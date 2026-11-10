@@ -36,5 +36,16 @@
   "offlineBody": "Verifye koneksyon ou, epi eseye ankò.",
   "offlineRetry": "Eseye ankò",
   "notificationTitle": "Nouvo notifikasyon",
-  "notificationBody": "Louvri aplikasyon an pou w wè li."
+  "notificationBody": "Louvri aplikasyon an pou w wè li.",
+  "safetyTitle": "Avètisman sekirite",
+  "safetyIntro": "Kenbe aplikasyon sa a sou ekran dakèy ou sèlman si pèsonn lòt pa ka antre nan aparèy sa a. Menm avèk yon non diskrè, li ka montre yon moun ou itilize sèvis sa a.",
+  "safetyDontIf": "Pa enstale l ni kenbe l si nenpòt nan bagay sa yo vre:",
+  "safetyRisk1": "Yon lòt moun konnen kòd ou oswa li ka debloke aparèy sa a.",
+  "safetyRisk2": "Se yon lòt moun ki te konfigire aparèy sa a, oswa li ka antre nan kont Apple oswa Google li.",
+  "safetyRisk3": "Ou panse yo ka ap siveye aparèy sa a.",
+  "safetyCheck": "Si ou poko fin fè joliroDetect oswa yon Odit Sekirite Nimerik avèk The Digital Safeguard Centre, fè sa anvan.",
+  "safetyDetectLink": "Louvri joliroDetect",
+  "safetyContinue": "Mwen konprann, kontinye",
+  "safetyOk": "Mwen konprann",
+  "safetyRemove": "Si aparèy sa a pa an sekirite, retire aplikasyon an sou ekran dakèy ou."
 }

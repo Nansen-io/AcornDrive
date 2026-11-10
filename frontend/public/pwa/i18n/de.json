@@ -36,5 +36,16 @@
   "offlineBody": "Prüfen Sie Ihre Verbindung und versuchen Sie es dann erneut.",
   "offlineRetry": "Erneut versuchen",
   "notificationTitle": "Neue Benachrichtigung",
-  "notificationBody": "Öffnen Sie die App, um sie anzuzeigen."
+  "notificationBody": "Öffnen Sie die App, um sie anzuzeigen.",
+  "safetyTitle": "Sicherheitshinweis",
+  "safetyIntro": "Legen Sie diese App nur dann auf Ihren Home-Bildschirm, wenn niemand sonst Zugriff auf dieses Gerät hat. Auch unter einem unauffälligen Namen kann sie anderen zeigen, dass Sie diesen Dienst nutzen.",
+  "safetyDontIf": "Installieren oder behalten Sie sie nicht, wenn einer dieser Punkte zutrifft:",
+  "safetyRisk1": "Jemand anderes kennt Ihren Code oder kann dieses Gerät entsperren.",
+  "safetyRisk2": "Jemand anderes hat dieses Gerät eingerichtet oder hat Zugriff auf das zugehörige Apple- oder Google-Konto.",
+  "safetyRisk3": "Sie vermuten, dass dieses Gerät überwacht wird.",
+  "safetyCheck": "Wenn Sie joliroDetect oder ein digitales Sicherheits-Audit mit The Digital Safeguard Centre noch nicht abgeschlossen haben, tun Sie das bitte zuerst.",
+  "safetyDetectLink": "joliroDetect öffnen",
+  "safetyContinue": "Verstanden, weiter",
+  "safetyOk": "Verstanden",
+  "safetyRemove": "Wenn dieses Gerät nicht sicher ist, entfernen Sie die App von Ihrem Home-Bildschirm."
 }
